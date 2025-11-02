@@ -205,27 +205,24 @@ async function getUserInfo(userId) {
 }
 
 module.exports = async (req, res) => {
-  // CORS Headers
+  // ✅ COMPLETE CORS HEADERS - SAB ALLOW KARO
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-Key');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
 
+  // ✅ OPTIONS request handle karo (Preflight)
   if (req.method === 'OPTIONS') {
+    console.log('CORS Preflight request handled');
     return res.status(200).end();
   }
 
   const { path, countryKey = 'philippines_51', ownid, id } = req.query;
 
-  try {
-    // ✅ COMPULSORY USER ID CHECK - Har request ke liye
-    if (!ownid) {
-      return res.json({
-        success: false,
-        error: 'User ID required. Use: &ownid=YOUR_USER_ID',
-        message: 'Please login to access this service'
-      });
-    }
+  console.log(`API Request: ${path}`, { userId: ownid, countryKey, numberId: id });
 
+  try {
     // ✅ Health check (bina user verification ke allow)
     if (path === 'health') {
       let userBalance = 0;
@@ -249,18 +246,29 @@ module.exports = async (req, res) => {
         timestamp: new Date().toISOString(),
         firebase: 'Connected',
         countries: Object.keys(countries).length,
-        version: '1.0.0'
+        version: '2.0.0',
+        cors: 'enabled'
       });
     }
 
     // ✅ User verification for all other paths
-    const userExists = await verifyUser(ownid);
-    if (!userExists) {
+    if (path !== 'health' && !ownid) {
       return res.json({
         success: false,
-        error: 'User not found. Please sign up first.',
+        error: 'User ID required. Use: &ownid=YOUR_USER_ID',
         userId: ownid
       });
+    }
+
+    if (path !== 'health') {
+      const userExists = await verifyUser(ownid);
+      if (!userExists) {
+        return res.json({
+          success: false,
+          error: 'User not found. Please sign up first.',
+          userId: ownid
+        });
+      }
     }
 
     // ✅ Get User Balance & Info
@@ -343,7 +351,7 @@ module.exports = async (req, res) => {
             price: countryConfig.price,
             timestamp: new Date().toISOString(),
             status: 'active',
-            expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString() // 15 minutes
+            expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
           };
           
           await numberRef.set(numberRecord);
@@ -368,7 +376,6 @@ module.exports = async (req, res) => {
             timestamp: new Date().toISOString()
           });
         } else {
-          // FireXOTP se error mila
           let errorMessage = 'Failed to get number from provider';
           
           if (data.includes('NO_NUMBERS')) {
@@ -424,7 +431,6 @@ module.exports = async (req, res) => {
 
         console.log('FireXOTP OTP Response:', data);
 
-        // ✅ Agar OTP mila hai to update karo
         if (data.includes('STATUS_OK')) {
           let otpCode = null;
           let status = 'waiting';
@@ -459,12 +465,6 @@ module.exports = async (req, res) => {
               timestamp: new Date().toISOString(),
               status: 'completed'
             });
-          } else if (data.includes('STATUS_WAIT_CODE')) {
-            status = 'waiting';
-          } else if (data.includes('STATUS_CANCEL')) {
-            status = 'cancelled';
-          } else if (data.includes('STATUS_FINISH')) {
-            status = 'finished';
           }
 
           return res.json({
@@ -519,11 +519,10 @@ module.exports = async (req, res) => {
         const snapshot = await numbersRef.orderByChild('numberId').equalTo(id).once('value');
         
         let refundAmount = 0;
-        let numberData = null;
         
         if (snapshot.exists()) {
           snapshot.forEach((childSnapshot) => {
-            numberData = childSnapshot.val();
+            const numberData = childSnapshot.val();
             refundAmount = numberData.price || 0;
           });
 
@@ -532,7 +531,6 @@ module.exports = async (req, res) => {
           snapshot.forEach((childSnapshot) => {
             updates[`${childSnapshot.key}/status`] = 'cancelled';
             updates[`${childSnapshot.key}/cancelledAt`] = new Date().toISOString();
-            updates[`${childSnapshot.key}/cancelReason`] = 'user_cancelled';
           });
           await numbersRef.update(updates);
         }
@@ -580,7 +578,6 @@ module.exports = async (req, res) => {
         const snapshot = await transactionsRef.once('value');
         const transactions = snapshot.val() || {};
         
-        // Convert to array and sort by timestamp (newest first)
         const transactionArray = Object.entries(transactions).map(([key, value]) => ({
           id: key,
           ...value
@@ -625,35 +622,6 @@ module.exports = async (req, res) => {
       }
     }
 
-    // ✅ Get User Numbers History
-    if (path === 'getNumbersHistory') {
-      try {
-        const numbersRef = db.ref(`userNumbers/${ownid}`).orderByChild('timestamp').limitToLast(20);
-        const snapshot = await numbersRef.once('value');
-        const numbers = snapshot.val() || {};
-        
-        // Convert to array and sort by timestamp (newest first)
-        const numbersArray = Object.entries(numbers).map(([key, value]) => ({
-          id: key,
-          ...value
-        })).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        
-        return res.json({
-          success: true,
-          userId: ownid,
-          numbers: numbersArray,
-          total: numbersArray.length
-        });
-      } catch (error) {
-        console.error('Get numbers history error:', error);
-        return res.json({
-          success: false,
-          error: 'Failed to get numbers history',
-          userId: ownid
-        });
-      }
-    }
-
     // ✅ Invalid path
     return res.json({ 
       success: false, 
@@ -667,7 +635,6 @@ module.exports = async (req, res) => {
         'cancelNumber',
         'getTransactions',
         'getActiveNumbers',
-        'getNumbersHistory',
         'health'
       ]
     });
