@@ -18,6 +18,17 @@ try {
 
 const API_KEY = process.env.API_KEY;
 
+// ✅ Multiple Countries Database with Prices
+const countries = {
+  'india_66': { code: '66', name: 'WhatsApp Indian', country: 'India', price: 140, flag: '🇮🇳' },
+  'india_115': { code: '115', name: 'WhatsApp Indian', country: 'India', price: 103, flag: '🇮🇳' },
+  'vietnam_118': { code: '118', name: 'WhatsApp Vietnam', country: 'Vietnam', price: 61, flag: '🇻🇳' },
+  'southafrica_52': { code: '52', name: 'WhatsApp South Africa', country: 'South Africa', price: 45, flag: '🇿🇦' },
+  'colombia_53': { code: '53', name: 'WhatsApp Colombia', country: 'Colombia', price: 71, flag: '🇨🇴' },
+  'philippines_51': { code: '51', name: 'WhatsApp Philippines', country: 'Philippines', price: 52, flag: '🇵🇭' },
+  'philippines2_117': { code: '117', name: 'WhatsApp Philippines 2', country: 'Philippines', price: 64, flag: '🇵🇭' }
+};
+
 module.exports = async (req, res) => {
   // CORS - Allow all
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -107,12 +118,23 @@ module.exports = async (req, res) => {
         status: 'OK',
         message: 'Server is running',
         timestamp: new Date().toISOString(),
-        firebase: 'Connected'
+        firebase: 'Connected',
+        countries: Object.keys(countries).length
       });
     }
 
     if (path === 'getNumber') {
-      const url = `https://firexotp.com/stubs/handler_api.php?action=getNumber&api_key=${API_KEY}&service=wa&country=51`;
+      const { countryKey = 'philippines_51' } = req.query; // Default to Philippines
+      const countryConfig = countries[countryKey];
+      
+      if (!countryConfig) {
+        return res.json({
+          success: false,
+          error: 'Invalid country selection'
+        });
+      }
+
+      const url = `https://firexotp.com/stubs/handler_api.php?action=getNumber&api_key=${API_KEY}&service=wa&country=${countryConfig.code}`;
       const response = await axios.get(url);
       const data = response.data;
 
@@ -121,7 +143,10 @@ module.exports = async (req, res) => {
         return res.json({
           success: true,
           id: parts[1],
-          number: parts[2]
+          number: parts[2],
+          country: countryConfig.country,
+          service: countryConfig.name,
+          price: countryConfig.price
         });
       } else {
         return res.json({
@@ -129,6 +154,13 @@ module.exports = async (req, res) => {
           error: data
         });
       }
+    }
+
+    if (path === 'getCountries') {
+      return res.json({
+        success: true,
+        countries: countries
+      });
     }
 
     if (path === 'getOtp') {
