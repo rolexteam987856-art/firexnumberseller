@@ -1,25 +1,33 @@
 const axios = require('axios');
 const admin = require('firebase-admin');
 
-// Firebase Initialization
+// ✅ PROPER FIREBASE INITIALIZATION
+let db;
+let firebaseInitialized = false;
+
 try {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
-    }),
-    databaseURL: "https://happy-seller-3d85b-default-rtdb.firebaseio.com"
-  });
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      credential: admin.credential.cert({
+        projectId: process.env.FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+      }),
+      databaseURL: "https://happy-seller-3d85b-default-rtdb.firebaseio.com"
+    });
+  }
+  
+  db = admin.database();
+  firebaseInitialized = true;
   console.log('Firebase initialized successfully');
 } catch (error) {
-  console.log('Firebase initialization:', error.message);
+  console.log('Firebase initialization error:', error.message);
+  firebaseInitialized = false;
 }
 
-const API_KEY = process.env.API_KEY;
-const db = admin.database();
+const API_KEY = process.env.API_KEY || 'demo_key';
 
-// ✅ Countries Database
+// ✅ COUNTRIES DATABASE
 const countries = {
   'india_66': { code: '66', name: 'WhatsApp Indian', country: 'India', price: 140, flag: '🇮🇳' },
   'india_115': { code: '115', name: 'WhatsApp Indian', country: 'India', price: 103, flag: '🇮🇳' },
@@ -30,41 +38,68 @@ const countries = {
   'philippines2_117': { code: '117', name: 'WhatsApp Philippines 2', country: 'Philippines', price: 64, flag: '🇵🇭' }
 };
 
-// ✅ User Balance Check Function
-async function checkUserBalance(userId) {
+// ✅ USER MANAGEMENT FUNCTIONS
+async function initializeUser(userId) {
+  if (!firebaseInitialized) return { success: false, error: 'Firebase not connected' };
+  
   try {
     const userRef = db.ref(`users/${userId}`);
     const snapshot = await userRef.once('value');
     
     if (!snapshot.exists()) {
-      // Naya user - initialize karo with zero balance
       await userRef.set({
         balance: 0,
         createdAt: new Date().toISOString(),
         totalSpent: 0,
         numbersUsed: 0,
-        email: `user_${userId}@firexotp.com`,
-        lastActive: new Date().toISOString()
+        lastActive: new Date().toISOString(),
+        status: 'active'
       });
-      return 0;
+      return { success: true, newUser: true, balance: 0 };
     }
     
-    const userData = snapshot.val();
-    
-    // Update last active time
+    // Update last active time for existing user
     await userRef.update({
       lastActive: new Date().toISOString()
     });
     
-    return userData.balance || 0;
+    const userData = snapshot.val();
+    return { 
+      success: true, 
+      newUser: false, 
+      balance: userData.balance || 0,
+      totalSpent: userData.totalSpent || 0,
+      numbersUsed: userData.numbersUsed || 0
+    };
+  } catch (error) {
+    console.error('User initialization error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+async function checkUserBalance(userId) {
+  if (!firebaseInitialized) return 0;
+  
+  try {
+    const userRef = db.ref(`users/${userId}`);
+    const snapshot = await userRef.once('value');
+    
+    if (snapshot.exists()) {
+      const userData = snapshot.val();
+      return userData.balance || 0;
+    }
+    return 0;
   } catch (error) {
     console.error('Balance check error:', error);
     return 0;
   }
 }
 
-// ✅ Deduct Balance Function
 async function deductBalance(userId, amount, countryKey) {
+  if (!firebaseInitialized) {
+    return { success: false, error: 'Firebase not connected' };
+  }
+  
   try {
     const userRef = db.ref(`users/${userId}`);
     const snapshot = await userRef.once('value');
@@ -97,7 +132,7 @@ async function deductBalance(userId, amount, countryKey) {
       lastActive: new Date().toISOString()
     });
     
-    // ✅ Transaction record banao
+    // Transaction record
     const transactionRef = db.ref(`transactions/${userId}`).push();
     await transactionRef.set({
       type: 'number_purchase',
@@ -117,8 +152,11 @@ async function deductBalance(userId, amount, countryKey) {
   }
 }
 
-// ✅ Refund Balance Function
 async function refundBalance(userId, amount, reason = 'cancelled', numberId = null) {
+  if (!firebaseInitialized) {
+    return { success: false, error: 'Firebase not connected' };
+  }
+  
   try {
     const userRef = db.ref(`users/${userId}`);
     const snapshot = await userRef.once('value');
@@ -137,7 +175,7 @@ async function refundBalance(userId, amount, reason = 'cancelled', numberId = nu
       lastActive: new Date().toISOString()
     });
     
-    // ✅ Refund transaction record banao
+    // Refund transaction record
     const transactionRef = db.ref(`transactions/${userId}`).push();
     await transactionRef.set({
       type: 'refund',
@@ -157,136 +195,79 @@ async function refundBalance(userId, amount, reason = 'cancelled', numberId = nu
   }
 }
 
-// ✅ Verify User Exists
-async function verifyUser(userId) {
-  try {
-    const userRef = db.ref(`users/${userId}`);
-    const snapshot = await userRef.once('value');
-    
-    if (snapshot.exists()) {
-      // Update last active time
-      await userRef.update({
-        lastActive: new Date().toISOString()
-      });
-      return true;
-    }
-    return false;
-  } catch (error) {
-    console.error('User verification error:', error);
-    return false;
-  }
-}
-
-// ✅ Get User Info
-async function getUserInfo(userId) {
-  try {
-    const userRef = db.ref(`users/${userId}`);
-    const snapshot = await userRef.once('value');
-    
-    if (!snapshot.exists()) {
-      return { success: false, error: 'User not found' };
-    }
-    
-    const userData = snapshot.val();
-    return {
-      success: true,
-      userId: userId,
-      email: userData.email,
-      balance: userData.balance || 0,
-      totalSpent: userData.totalSpent || 0,
-      numbersUsed: userData.numbersUsed || 0,
-      joined: userData.createdAt,
-      lastActive: userData.lastActive
-    };
-  } catch (error) {
-    console.error('Get user info error:', error);
-    return { success: false, error: 'Failed to get user info' };
-  }
-}
-
 module.exports = async (req, res) => {
-  // ✅ COMPLETE CORS HEADERS - SAB ALLOW KARO
+  // ✅ COMPLETE CORS HEADERS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-Key');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
+  res.setHeader('Access-Control-Max-Age', '86400');
 
-  // ✅ OPTIONS request handle karo (Preflight)
+  // ✅ OPTIONS request handle karo
   if (req.method === 'OPTIONS') {
-    console.log('CORS Preflight request handled');
     return res.status(200).end();
   }
 
   const { path, countryKey = 'philippines_51', ownid, id } = req.query;
 
-  console.log(`API Request: ${path}`, { userId: ownid, countryKey, numberId: id });
-
   try {
-    // ✅ Health check (bina user verification ke allow)
+    // ✅ HEALTH CHECK (Bina ownid ke allow)
     if (path === 'health') {
-      let userBalance = 0;
-      let userExists = false;
-      
-      try {
-        userExists = await verifyUser(ownid);
-        if (userExists) {
-          userBalance = await checkUserBalance(ownid);
-        }
-      } catch (error) {
-        console.error('Health check user error:', error);
-      }
-      
       return res.json({
         status: 'OK',
         message: 'FirexOTP Server is running',
-        userId: ownid,
-        userExists: userExists,
-        userBalance: userBalance,
         timestamp: new Date().toISOString(),
-        firebase: 'Connected',
+        firebase: firebaseInitialized ? 'Connected' : 'Not Connected',
         countries: Object.keys(countries).length,
         version: '2.0.0',
-        cors: 'enabled'
+        security: 'User ID required for all operations except health check'
       });
     }
 
-    // ✅ User verification for all other paths
-    if (path !== 'health' && !ownid) {
+    // ✅ 🔥 COMPULSORY USER ID CHECK - Bina ownid ke kuch nahi hoga
+    if (!ownid) {
       return res.json({
         success: false,
-        error: 'User ID required. Use: &ownid=YOUR_USER_ID',
+        error: 'USER ID REQUIRED',
+        message: 'Please provide your user ID using &ownid=YOUR_USER_ID',
+        example: '/api?path=getBalance&ownid=user123'
+      });
+    }
+
+    // ✅ Initialize user (agar naya hai to create karo)
+    const userInit = await initializeUser(ownid);
+    if (!userInit.success) {
+      return res.json({
+        success: false,
+        error: 'User initialization failed: ' + userInit.error,
         userId: ownid
       });
     }
 
-    if (path !== 'health') {
-      const userExists = await verifyUser(ownid);
-      if (!userExists) {
-        return res.json({
-          success: false,
-          error: 'User not found. Please sign up first.',
-          userId: ownid
-        });
-      }
-    }
-
-    // ✅ Get User Balance & Info
+    // ✅ GET USER BALANCE
     if (path === 'getBalance') {
-      const userInfo = await getUserInfo(ownid);
-      return res.json(userInfo);
+      const balance = await checkUserBalance(ownid);
+      return res.json({
+        success: true,
+        userId: ownid,
+        balance: balance,
+        totalSpent: userInit.totalSpent || 0,
+        numbersUsed: userInit.numbersUsed || 0,
+        isNewUser: userInit.newUser || false
+      });
     }
 
-    // ✅ Get Countries List
+    // ✅ GET COUNTRIES LIST
     if (path === 'getCountries') {
       return res.json({
         success: true,
         userId: ownid,
-        countries: countries
+        countries: countries,
+        userBalance: await checkUserBalance(ownid)
       });
     }
 
-    // ✅ Get Number (with balance check) - MAIN FUNCTION
+    // ✅ GET NUMBER (With balance check and deduction)
     if (path === 'getNumber') {
       const countryConfig = countries[countryKey];
       
@@ -299,29 +280,25 @@ module.exports = async (req, res) => {
         });
       }
 
-      // ✅ Pehle balance check karo
-      const balanceCheck = await checkUserBalance(ownid);
+      // ✅ Balance check karo
+      const userBalance = await checkUserBalance(ownid);
       
-      if (balanceCheck < countryConfig.price) {
+      if (userBalance < countryConfig.price) {
         return res.json({
           success: false,
-          error: 'Insufficient balance',
+          error: 'INSUFFICIENT BALANCE',
           userId: ownid,
-          currentBalance: balanceCheck,
+          currentBalance: userBalance,
           required: countryConfig.price,
-          message: `You need ₹${countryConfig.price - balanceCheck} more to get ${countryConfig.name}`
+          message: `You need ₹${countryConfig.price - userBalance} more to get ${countryConfig.name}`
         });
       }
 
       try {
-        // ✅ Number get karo from FireXOTP
+        // ✅ FireXOTP se number get karo
         const url = `https://firexotp.com/stubs/handler_api.php?action=getNumber&api_key=${API_KEY}&service=wa&country=${countryConfig.code}`;
-        console.log('FireXOTP Request:', url);
-        
         const response = await axios.get(url, { timeout: 30000 });
         const data = response.data;
-
-        console.log('FireXOTP Response:', data);
 
         const parts = data.split(':');
         if (parts[0] === 'ACCESS_NUMBER' && parts.length === 3) {
@@ -341,26 +318,31 @@ module.exports = async (req, res) => {
           const phoneNumber = parts[2];
 
           // ✅ Number record save karo
-          const numberRef = db.ref(`userNumbers/${ownid}`).push();
-          const numberRecord = {
-            numberId: numberId,
-            number: phoneNumber,
-            country: countryKey,
-            countryName: countryConfig.country,
-            service: countryConfig.name,
-            price: countryConfig.price,
-            timestamp: new Date().toISOString(),
-            status: 'active',
-            expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
-          };
-          
-          await numberRef.set(numberRecord);
+          if (firebaseInitialized) {
+            const numberRef = db.ref(`userNumbers/${ownid}`).push();
+            await numberRef.set({
+              numberId: numberId,
+              number: phoneNumber,
+              country: countryKey,
+              countryName: countryConfig.country,
+              service: countryConfig.name,
+              price: countryConfig.price,
+              timestamp: new Date().toISOString(),
+              status: 'active',
+              userId: ownid
+            });
 
-          // ✅ Active transaction save karo
-          await db.ref(`activeTransactions/${ownid}`).set({
-            ...numberRecord,
-            userId: ownid
-          });
+            // Active transaction save karo
+            await db.ref(`activeTransactions/${ownid}`).set({
+              numberId: numberId,
+              number: phoneNumber,
+              country: countryKey,
+              price: countryConfig.price,
+              timestamp: new Date().toISOString(),
+              status: 'active',
+              userId: ownid
+            });
+          }
 
           return res.json({
             success: true,
@@ -372,47 +354,26 @@ module.exports = async (req, res) => {
             newBalance: deduction.newBalance,
             message: `₹${countryConfig.price} deducted from your account`,
             userId: ownid,
-            expiresIn: '15 minutes',
-            timestamp: new Date().toISOString()
+            expiresIn: '15 minutes'
           });
         } else {
-          let errorMessage = 'Failed to get number from provider';
-          
-          if (data.includes('NO_NUMBERS')) {
-            errorMessage = 'No numbers available for this country. Please try another country.';
-          } else if (data.includes('NO_BALANCE')) {
-            errorMessage = 'Provider balance low. Please try again later.';
-          } else if (data.includes('ERROR')) {
-            errorMessage = 'Provider error: ' + data;
-          }
-          
           return res.json({
             success: false,
-            error: errorMessage,
-            rawError: data,
+            error: 'Failed to get number: ' + data,
             userId: ownid
           });
         }
       } catch (error) {
-        console.error('FireXOTP API Error:', error.message);
-        
-        let errorMessage = 'Failed to connect to number provider';
-        if (error.code === 'ECONNABORTED') {
-          errorMessage = 'Request timeout. Please try again.';
-        } else if (error.response) {
-          errorMessage = `Provider error: ${error.response.status}`;
-        }
-        
+        console.error('Get number error:', error);
         return res.json({
           success: false,
-          error: errorMessage,
-          userId: ownid,
-          details: error.message
+          error: 'Network error: ' + error.message,
+          userId: ownid
         });
       }
     }
 
-    // ✅ Get OTP
+    // ✅ GET OTP
     if (path === 'getOtp') {
       if (!id) {
         return res.json({ 
@@ -424,22 +385,15 @@ module.exports = async (req, res) => {
 
       try {
         const url = `https://firexotp.com/stubs/handler_api.php?action=getStatus&api_key=${API_KEY}&id=${id}`;
-        console.log('FireXOTP OTP Check:', url);
-        
         const response = await axios.get(url, { timeout: 15000 });
         const data = response.data;
 
-        console.log('FireXOTP OTP Response:', data);
-
-        if (data.includes('STATUS_OK')) {
-          let otpCode = null;
-          let status = 'waiting';
+        // ✅ Agar OTP mila hai to update karo
+        if (data.includes('STATUS_OK:CODE:')) {
+          const otpCode = data.split(':')[2];
           
-          if (data.includes('STATUS_OK:CODE:')) {
-            otpCode = data.split(':')[2];
-            status = 'received';
-            
-            // ✅ Number record update karo
+          if (firebaseInitialized) {
+            // Number record update karo
             const numbersRef = db.ref(`userNumbers/${ownid}`);
             const snapshot = await numbersRef.orderByChild('numberId').equalTo(id).once('value');
             
@@ -453,39 +407,19 @@ module.exports = async (req, res) => {
               await numbersRef.update(updates);
             }
 
-            // ✅ Active transaction remove karo
+            // Active transaction remove karo
             await db.ref(`activeTransactions/${ownid}`).remove();
-
-            // ✅ OTP transaction record banao
-            const transactionRef = db.ref(`transactions/${ownid}`).push();
-            await transactionRef.set({
-              type: 'otp_received',
-              numberId: id,
-              otp: otpCode,
-              timestamp: new Date().toISOString(),
-              status: 'completed'
-            });
           }
-
-          return res.json({
-            success: true,
-            userId: ownid,
-            data: data,
-            numberId: id,
-            status: status,
-            otp: otpCode,
-            timestamp: new Date().toISOString()
-          });
-        } else {
-          return res.json({
-            success: false,
-            error: 'OTP check failed: ' + data,
-            userId: ownid,
-            data: data
-          });
         }
+
+        return res.json({
+          success: true,
+          userId: ownid,
+          data: data,
+          numberId: id
+        });
       } catch (error) {
-        console.error('OTP check error:', error.message);
+        console.error('OTP check error:', error);
         return res.json({
           success: false,
           error: 'Failed to check OTP: ' + error.message,
@@ -494,7 +428,7 @@ module.exports = async (req, res) => {
       }
     }
 
-    // ✅ Cancel Number
+    // ✅ CANCEL NUMBER
     if (path === 'cancelNumber') {
       if (!id) {
         return res.json({ 
@@ -505,52 +439,48 @@ module.exports = async (req, res) => {
       }
 
       try {
-        // ✅ FireXOTP par cancel karo
         const url = `https://firexotp.com/stubs/handler_api.php?action=setStatus&api_key=${API_KEY}&id=${id}&status=8`;
-        console.log('FireXOTP Cancel:', url);
-        
         const response = await axios.get(url, { timeout: 15000 });
         const data = response.data;
 
-        console.log('FireXOTP Cancel Response:', data);
-
-        // ✅ Number record find karo
-        const numbersRef = db.ref(`userNumbers/${ownid}`);
-        const snapshot = await numbersRef.orderByChild('numberId').equalTo(id).once('value');
-        
-        let refundAmount = 0;
-        
-        if (snapshot.exists()) {
-          snapshot.forEach((childSnapshot) => {
-            const numberData = childSnapshot.val();
-            refundAmount = numberData.price || 0;
-          });
-
-          // ✅ Status update karo
-          const updates = {};
-          snapshot.forEach((childSnapshot) => {
-            updates[`${childSnapshot.key}/status`] = 'cancelled';
-            updates[`${childSnapshot.key}/cancelledAt`] = new Date().toISOString();
-          });
-          await numbersRef.update(updates);
-        }
-
-        // ✅ Active transaction remove karo
-        await db.ref(`activeTransactions/${ownid}`).remove();
-
         // ✅ Refund process karo
-        if (refundAmount > 0) {
-          const refund = await refundBalance(ownid, refundAmount, 'number_cancelled', id);
-          if (refund.success) {
-            return res.json({
-              success: true,
-              userId: ownid,
-              data: data,
-              refunded: true,
-              refundAmount: refundAmount,
-              newBalance: refund.newBalance,
-              message: `Number cancelled and ₹${refundAmount} refunded to your account`
+        if (firebaseInitialized) {
+          const numbersRef = db.ref(`userNumbers/${ownid}`);
+          const snapshot = await numbersRef.orderByChild('numberId').equalTo(id).once('value');
+          
+          let refundAmount = 0;
+          if (snapshot.exists()) {
+            snapshot.forEach((childSnapshot) => {
+              const numberData = childSnapshot.val();
+              refundAmount = numberData.price || 0;
             });
+
+            // Status update karo
+            const updates = {};
+            snapshot.forEach((childSnapshot) => {
+              updates[`${childSnapshot.key}/status`] = 'cancelled';
+              updates[`${childSnapshot.key}/cancelledAt`] = new Date().toISOString();
+            });
+            await numbersRef.update(updates);
+          }
+
+          // Active transaction remove karo
+          await db.ref(`activeTransactions/${ownid}`).remove();
+
+          // Refund karo
+          if (refundAmount > 0) {
+            const refund = await refundBalance(ownid, refundAmount, 'number_cancelled', id);
+            if (refund.success) {
+              return res.json({
+                success: true,
+                userId: ownid,
+                data: data,
+                refunded: true,
+                refundAmount: refundAmount,
+                newBalance: refund.newBalance,
+                message: `Number cancelled and ₹${refundAmount} refunded to your account`
+              });
+            }
           }
         }
 
@@ -562,7 +492,7 @@ module.exports = async (req, res) => {
           message: 'Number cancelled successfully'
         });
       } catch (error) {
-        console.error('Cancel number error:', error.message);
+        console.error('Cancel number error:', error);
         return res.json({
           success: false,
           error: 'Failed to cancel number: ' + error.message,
@@ -571,58 +501,7 @@ module.exports = async (req, res) => {
       }
     }
 
-    // ✅ Get User Transactions
-    if (path === 'getTransactions') {
-      try {
-        const transactionsRef = db.ref(`transactions/${ownid}`).orderByChild('timestamp').limitToLast(50);
-        const snapshot = await transactionsRef.once('value');
-        const transactions = snapshot.val() || {};
-        
-        const transactionArray = Object.entries(transactions).map(([key, value]) => ({
-          id: key,
-          ...value
-        })).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-        
-        return res.json({
-          success: true,
-          userId: ownid,
-          transactions: transactionArray,
-          total: transactionArray.length
-        });
-      } catch (error) {
-        console.error('Get transactions error:', error);
-        return res.json({
-          success: false,
-          error: 'Failed to get transactions',
-          userId: ownid
-        });
-      }
-    }
-
-    // ✅ Get Active Numbers
-    if (path === 'getActiveNumbers') {
-      try {
-        const activeRef = db.ref(`activeTransactions/${ownid}`);
-        const snapshot = await activeRef.once('value');
-        const activeNumbers = snapshot.val() || {};
-        
-        return res.json({
-          success: true,
-          userId: ownid,
-          activeNumbers: activeNumbers,
-          hasActive: !!snapshot.exists()
-        });
-      } catch (error) {
-        console.error('Get active numbers error:', error);
-        return res.json({
-          success: false,
-          error: 'Failed to get active numbers',
-          userId: ownid
-        });
-      }
-    }
-
-    // ✅ Invalid path
+    // ✅ INVALID PATH
     return res.json({ 
       success: false, 
       error: 'Invalid path',
@@ -633,8 +512,6 @@ module.exports = async (req, res) => {
         'getCountries', 
         'getBalance', 
         'cancelNumber',
-        'getTransactions',
-        'getActiveNumbers',
         'health'
       ]
     });
@@ -645,8 +522,7 @@ module.exports = async (req, res) => {
       success: false,
       error: 'Internal server error',
       userId: ownid || 'unknown',
-      message: error.message,
-      timestamp: new Date().toISOString()
+      message: error.message
     });
   }
 };
