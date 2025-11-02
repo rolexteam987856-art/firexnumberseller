@@ -1,6 +1,6 @@
 const axios = require('axios');
 
-// ✅ SIMPLE COUNTRIES DATABASE
+// ✅ COUNTRIES DATABASE
 const countries = {
   'india_66': { code: '66', name: 'WhatsApp Indian', country: 'India', price: 140, flag: '🇮🇳' },
   'india_115': { code: '115', name: 'WhatsApp Indian', country: 'India', price: 103, flag: '🇮🇳' },
@@ -10,33 +10,6 @@ const countries = {
   'philippines_51': { code: '51', name: 'WhatsApp Philippines', country: 'Philippines', price: 52, flag: '🇵🇭' },
   'philippines2_117': { code: '117', name: 'WhatsApp Philippines 2', country: 'Philippines', price: 64, flag: '🇵🇭' }
 };
-
-// ✅ SIMPLE USER BALANCE STORE (In-memory)
-const userBalances = new Map();
-
-function getUserBalance(userId) {
-  if (!userBalances.has(userId)) {
-    userBalances.set(userId, 1000); // Default balance ₹1000
-  }
-  return userBalances.get(userId);
-}
-
-function deductBalance(userId, amount) {
-  const currentBalance = getUserBalance(userId);
-  if (currentBalance < amount) {
-    return { success: false, error: 'Insufficient balance' };
-  }
-  const newBalance = currentBalance - amount;
-  userBalances.set(userId, newBalance);
-  return { success: true, newBalance: newBalance };
-}
-
-function refundBalance(userId, amount) {
-  const currentBalance = getUserBalance(userId);
-  const newBalance = currentBalance + amount;
-  userBalances.set(userId, newBalance);
-  return { success: true, newBalance: newBalance };
-}
 
 module.exports = async (req, res) => {
   // ✅ COMPLETE CORS HEADERS
@@ -78,28 +51,17 @@ module.exports = async (req, res) => {
       });
     }
 
-    // ✅ GET USER BALANCE
-    if (path === 'getBalance') {
-      const balance = getUserBalance(ownid);
-      return res.json({
-        success: true,
-        userId: ownid,
-        balance: balance,
-        message: 'Balance retrieved successfully'
-      });
-    }
-
     // ✅ GET COUNTRIES LIST
     if (path === 'getCountries') {
       return res.json({
         success: true,
         userId: ownid,
         countries: countries,
-        userBalance: getUserBalance(ownid)
+        message: 'Countries list retrieved successfully'
       });
     }
 
-    // ✅ GET NUMBER (With balance check and deduction)
+    // ✅ GET NUMBER (Direct FireXOTP call)
     if (path === 'getNumber') {
       const countryConfig = countries[countryKey];
       
@@ -112,23 +74,17 @@ module.exports = async (req, res) => {
         });
       }
 
-      // ✅ Balance check karo
-      const userBalance = getUserBalance(ownid);
-      
-      if (userBalance < countryConfig.price) {
-        return res.json({
-          success: false,
-          error: 'INSUFFICIENT BALANCE',
-          userId: ownid,
-          currentBalance: userBalance,
-          required: countryConfig.price,
-          message: `You need ₹${countryConfig.price - userBalance} more to get ${countryConfig.name}`
-        });
-      }
-
       try {
         // ✅ FireXOTP se number get karo
-        const API_KEY = process.env.API_KEY || 'demo';
+        const API_KEY = process.env.API_KEY;
+        if (!API_KEY) {
+          return res.json({
+            success: false,
+            error: 'API key not configured',
+            userId: ownid
+          });
+        }
+
         const url = `https://firexotp.com/stubs/handler_api.php?action=getNumber&api_key=${API_KEY}&service=wa&country=${countryConfig.code}`;
         
         console.log('Calling FireXOTP:', url);
@@ -139,18 +95,6 @@ module.exports = async (req, res) => {
 
         const parts = data.split(':');
         if (parts[0] === 'ACCESS_NUMBER' && parts.length === 3) {
-          
-          // ✅ Balance deduct karo
-          const deduction = deductBalance(ownid, countryConfig.price);
-          
-          if (!deduction.success) {
-            return res.json({
-              success: false,
-              error: 'Payment failed: ' + deduction.error,
-              userId: ownid
-            });
-          }
-
           const numberId = parts[1];
           const phoneNumber = parts[2];
 
@@ -161,8 +105,7 @@ module.exports = async (req, res) => {
             country: countryConfig.country,
             service: countryConfig.name,
             price: countryConfig.price,
-            newBalance: deduction.newBalance,
-            message: `₹${countryConfig.price} deducted from your account`,
+            message: 'Number allocated successfully',
             userId: ownid,
             expiresIn: '15 minutes',
             timestamp: new Date().toISOString()
@@ -174,6 +117,8 @@ module.exports = async (req, res) => {
             errorMessage = 'No numbers available for this country. Please try another country.';
           } else if (data.includes('NO_BALANCE')) {
             errorMessage = 'Provider balance low. Please try again later.';
+          } else if (data.includes('ERROR')) {
+            errorMessage = 'Provider error: ' + data;
           }
           
           return res.json({
@@ -189,6 +134,8 @@ module.exports = async (req, res) => {
         let errorMessage = 'Failed to connect to number provider';
         if (error.code === 'ECONNABORTED') {
           errorMessage = 'Request timeout. Please try again.';
+        } else if (error.response) {
+          errorMessage = `Provider error: ${error.response.status}`;
         }
         
         return res.json({
@@ -211,7 +158,15 @@ module.exports = async (req, res) => {
       }
 
       try {
-        const API_KEY = process.env.API_KEY || 'demo';
+        const API_KEY = process.env.API_KEY;
+        if (!API_KEY) {
+          return res.json({
+            success: false,
+            error: 'API key not configured',
+            userId: ownid
+          });
+        }
+
         const url = `https://firexotp.com/stubs/handler_api.php?action=getStatus&api_key=${API_KEY}&id=${id}`;
         
         const response = await axios.get(url, { timeout: 15000 });
@@ -223,6 +178,10 @@ module.exports = async (req, res) => {
         if (data.includes('STATUS_OK:CODE:')) {
           otpCode = data.split(':')[2];
           status = 'received';
+        } else if (data.includes('STATUS_CANCEL')) {
+          status = 'cancelled';
+        } else if (data.includes('STATUS_FINISH')) {
+          status = 'finished';
         }
 
         return res.json({
@@ -255,24 +214,26 @@ module.exports = async (req, res) => {
       }
 
       try {
-        const API_KEY = process.env.API_KEY || 'demo';
+        const API_KEY = process.env.API_KEY;
+        if (!API_KEY) {
+          return res.json({
+            success: false,
+            error: 'API key not configured',
+            userId: ownid
+          });
+        }
+
         const url = `https://firexotp.com/stubs/handler_api.php?action=setStatus&api_key=${API_KEY}&id=${id}&status=8`;
         
         const response = await axios.get(url, { timeout: 15000 });
         const data = response.data;
 
-        // Demo refund amount (actual implementation mein Firebase se price get karna hoga)
-        const refundAmount = countries[countryKey]?.price || 50;
-        const refund = refundBalance(ownid, refundAmount);
-
         return res.json({
           success: true,
           userId: ownid,
           data: data,
-          refunded: true,
-          refundAmount: refundAmount,
-          newBalance: refund.newBalance,
-          message: `Number cancelled and ₹${refundAmount} refunded to your account`
+          message: 'Number cancelled successfully',
+          timestamp: new Date().toISOString()
         });
       } catch (error) {
         console.error('Cancel number error:', error.message);
@@ -293,7 +254,6 @@ module.exports = async (req, res) => {
         'getNumber', 
         'getOtp', 
         'getCountries', 
-        'getBalance', 
         'cancelNumber',
         'health'
       ]
