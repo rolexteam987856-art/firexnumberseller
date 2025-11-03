@@ -1,0 +1,2913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FirexOTP - Virtual Numbers</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        :root {
+            --primary: #00f3ff;
+            --secondary: #ff00e6;
+            --accent: #7700ff;
+            --success: #00ff9d;
+            --danger: #ff0040;
+            --warning: #ffd166;
+            --info: #00a2ff;
+            --dark: #0a0a12;
+            --darker: #050508;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glow: rgba(0, 243, 255, 0.3);
+            --cyber-border: 1px solid rgba(0, 243, 255, 0.3);
+        }
+
+        body {
+            background: linear-gradient(135deg, var(--darker) 0%, var(--dark) 50%, #0f0f1a 100%);
+            color: white;
+            min-height: 100vh;
+            padding: 15px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Cyber Grid Background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 243, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: -2;
+            opacity: 0.3;
+        }
+
+        /* Animated Background */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(0, 243, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(255, 0, 230, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(119, 0, 255, 0.05) 0%, transparent 50%);
+            z-index: -1;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(1deg); }
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 10px;
+        }
+
+        /* Header Styles */
+        header {
+            text-align: center;
+            padding: 25px 15px;
+            margin-bottom: 25px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .logo i {
+            font-size: 2.2rem;
+            color: var(--primary);
+            text-shadow: 0 0 20px var(--primary);
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { text-shadow: 0 0 10px var(--primary); }
+            to { text-shadow: 0 0 20px var(--primary), 0 0 30px var(--secondary); }
+        }
+
+        .logo h1 {
+            font-size: 2rem;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: 700;
+            text-shadow: 0 0 30px rgba(119, 0, 255, 0.5);
+            position: relative;
+        }
+
+        .logo h1::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+        }
+
+        .tagline {
+            font-size: 1rem;
+            color: #c7d2fe;
+            margin-bottom: 12px;
+            font-weight: 300;
+        }
+
+        .service-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--success), var(--info));
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-weight: 600;
+            margin-top: 12px;
+            box-shadow: 0 0 20px rgba(0, 255, 157, 0.3);
+            border: var(--cyber-border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .service-badge::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .service-badge:hover::before {
+            left: 100%;
+        }
+
+        /* API Key Section Styles */
+        .api-key-section {
+            background: var(--glass);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(20px);
+            border: var(--cyber-border);
+        }
+
+        .api-key-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .api-key-header i {
+            color: var(--primary);
+            font-size: 1.4rem;
+        }
+
+        .api-key-display {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--primary);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            font-family: monospace;
+            word-break: break-all;
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .api-key-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-sm {
+            padding: 10px 15px;
+            font-size: 0.9rem;
+        }
+
+        .api-docs {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 10px;
+            border: var(--cyber-border);
+        }
+
+        .api-docs h4 {
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        .api-url {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 12px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: var(--success);
+            margin-bottom: 8px;
+            word-break: break-all;
+        }
+
+        /* Country Selector Styles */
+        .country-selector {
+            margin-bottom: 25px;
+        }
+
+        .country-search {
+            width: 100%;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.6);
+            border: var(--cyber-border);
+            border-radius: 10px;
+            color: white;
+            font-size: 1rem;
+            margin-bottom: 15px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .country-search:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 20px var(--glow);
+        }
+
+        .country-search::placeholder {
+            color: #94a3b8;
+        }
+
+        .country-dropdown {
+            background: rgba(0, 0, 0, 0.8);
+            border: var(--cyber-border);
+            border-radius: 15px;
+            backdrop-filter: blur(20px);
+            max-height: 400px;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .country-group {
+            border-bottom: var(--cyber-border);
+        }
+
+        .country-group:last-child {
+            border-bottom: none;
+        }
+
+        .country-header {
+            padding: 15px 20px;
+            background: rgba(0, 243, 255, 0.1);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .country-header:hover {
+            background: rgba(0, 243, 255, 0.2);
+        }
+
+        .country-header i {
+            transition: transform 0.3s ease;
+        }
+
+        .country-header.active i {
+            transform: rotate(90deg);
+        }
+
+        .country-options {
+            display: none;
+            background: rgba(0, 0, 0, 0.6);
+        }
+
+        .country-options.active {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .country-option {
+            padding: 15px 20px 15px 50px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .country-option:last-child {
+            border-bottom: none;
+        }
+
+        .country-option:hover {
+            background: rgba(0, 243, 255, 0.1);
+        }
+
+        .country-option.selected {
+            background: rgba(0, 255, 157, 0.2);
+            border-left: 3px solid var(--success);
+        }
+
+        .option-name {
+            font-weight: 500;
+        }
+
+        .option-price {
+            color: var(--success);
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .selected-country {
+            background: rgba(0, 243, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            border: var(--cyber-border);
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .selected-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .selected-price {
+            color: var(--success);
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+
+        /* Glass Card Styles */
+        .card {
+            background: var(--glass);
+            border-radius: 15px;
+            padding: 25px 20px;
+            backdrop-filter: blur(20px);
+            border: var(--cyber-border);
+            margin-bottom: 25px;
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .card:hover::before {
+            left: 100%;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 
+                0 15px 40px rgba(0, 0, 0, 0.4),
+                0 0 0 1px rgba(255, 255, 255, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: var(--cyber-border);
+        }
+
+        .card-header i {
+            font-size: 1.6rem;
+            color: var(--primary);
+            text-shadow: 0 0 15px var(--primary);
+        }
+
+        .card-header h2 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #fff, #c7d2fe);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        /* Button Styles */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 18px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 15px;
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: black;
+            box-shadow: 0 5px 20px var(--glow), 0 0 30px rgba(0, 243, 255, 0.2);
+            border: var(--cyber-border);
+            animation: pulse-primary 2s infinite;
+        }
+
+        @keyframes pulse-primary {
+            0%, 100% { box-shadow: 0 5px 20px var(--glow), 0 0 30px rgba(0, 243, 255, 0.2); }
+            50% { box-shadow: 0 5px 25px var(--glow), 0 0 40px rgba(0, 243, 255, 0.4); }
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, var(--secondary), var(--accent));
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px var(--glow), 0 0 50px rgba(0, 243, 255, 0.4);
+            color: white;
+            animation: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--success), #00c97a);
+            color: black;
+            box-shadow: 0 5px 20px rgba(0, 255, 157, 0.3), 0 0 30px rgba(0, 255, 157, 0.2);
+            border: var(--cyber-border);
+            animation: pulse-success 2s infinite;
+        }
+
+        @keyframes pulse-success {
+            0%, 100% { box-shadow: 0 5px 20px rgba(0, 255, 157, 0.3), 0 0 30px rgba(0, 255, 157, 0.2); }
+            50% { box-shadow: 0 5px 25px rgba(0, 255, 157, 0.4), 0 0 40px rgba(0, 255, 157, 0.3); }
+        }
+
+        .btn-success:hover {
+            background: linear-gradient(135deg, #00c97a, var(--success));
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(0, 255, 157, 0.4), 0 0 50px rgba(0, 255, 157, 0.3);
+            color: black;
+            animation: none;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger), #e6003c);
+            color: white;
+            box-shadow: 0 5px 20px rgba(255, 0, 64, 0.3), 0 0 30px rgba(255, 0, 64, 0.2);
+            border: var(--cyber-border);
+            animation: pulse-danger 2s infinite;
+        }
+
+        @keyframes pulse-danger {
+            0%, 100% { box-shadow: 0 5px 20px rgba(255, 0, 64, 0.3), 0 0 30px rgba(255, 0, 64, 0.2); }
+            50% { box-shadow: 0 5px 25px rgba(255, 0, 64, 0.4), 0 0 40px rgba(255, 0, 64, 0.3); }
+        }
+
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #e6003c, var(--danger));
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(255, 0, 64, 0.4), 0 0 50px rgba(255, 0, 64, 0.3);
+            color: white;
+            animation: none;
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, var(--info), #0080ff);
+            color: white;
+            box-shadow: 0 5px 20px rgba(0, 162, 255, 0.3), 0 0 30px rgba(0, 162, 255, 0.2);
+            border: var(--cyber-border);
+            animation: pulse-info 2s infinite;
+        }
+
+        @keyframes pulse-info {
+            0%, 100% { box-shadow: 0 5px 20px rgba(0, 162, 255, 0.3), 0 0 30px rgba(0, 162, 255, 0.2); }
+            50% { box-shadow: 0 5px 25px rgba(0, 162, 255, 0.4), 0 0 40px rgba(0, 162, 255, 0.3); }
+        }
+
+        .btn-info:hover {
+            background: linear-gradient(135deg, #0080ff, var(--info));
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(0, 162, 255, 0.4), 0 0 50px rgba(0, 162, 255, 0.3);
+            color: white;
+            animation: none;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, var(--warning), #ffb700);
+            color: black;
+            box-shadow: 0 5px 20px rgba(255, 209, 102, 0.3), 0 0 30px rgba(255, 209, 102, 0.2);
+            border: var(--cyber-border);
+            animation: pulse-warning 2s infinite;
+        }
+
+        @keyframes pulse-warning {
+            0%, 100% { box-shadow: 0 5px 20px rgba(255, 209, 102, 0.3), 0 0 30px rgba(255, 209, 102, 0.2); }
+            50% { box-shadow: 0 5px 25px rgba(255, 209, 102, 0.4), 0 0 40px rgba(255, 209, 102, 0.3); }
+        }
+
+        .btn-warning:hover {
+            background: linear-gradient(135deg, #ffb700, var(--warning));
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(255, 209, 102, 0.4), 0 0 50px rgba(255, 209, 102, 0.3);
+            color: black;
+            animation: none;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
+            animation: none !important;
+        }
+
+        /* Result Areas */
+        .result-area {
+            margin-top: 20px;
+            padding: 25px 20px;
+            border-radius: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            display: none;
+            border: var(--cyber-border);
+            backdrop-filter: blur(10px);
+        }
+
+        .result-area.active {
+            display: block;
+            animation: slideUp 0.5s ease;
+        }
+
+        @keyframes slideUp {
+            from { 
+                opacity: 0; 
+                transform: translateY(20px); 
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0); 
+            }
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: var(--cyber-border);
+        }
+
+        .result-item:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .result-label {
+            font-weight: 600;
+            color: #c7d2fe;
+            font-size: 1rem;
+            min-width: 120px;
+        }
+
+        .result-value {
+            font-weight: 500;
+            color: white;
+            word-break: break-all;
+            text-align: right;
+            flex: 1;
+            font-size: 1rem;
+        }
+
+        /* Timer Styles */
+        .timer {
+            font-size: 2rem;
+            font-weight: 700;
+            text-align: center;
+            margin: 25px 0;
+            color: var(--warning);
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 15px;
+            border: var(--cyber-border);
+            box-shadow: 0 0 20px rgba(255, 209, 102, 0.2);
+            text-shadow: 0 0 10px rgba(255, 209, 102, 0.5);
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Action Buttons Grid */
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        /* Status Messages */
+        .status-message {
+            padding: 18px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: 500;
+            display: none;
+            font-size: 1rem;
+            backdrop-filter: blur(10px);
+            border: var(--cyber-border);
+        }
+
+        .status-success {
+            background: rgba(0, 255, 157, 0.2);
+            color: var(--success);
+            border: 1px solid var(--success);
+            box-shadow: 0 0 20px rgba(0, 255, 157, 0.2);
+        }
+
+        .status-error {
+            background: rgba(255, 0, 64, 0.2);
+            color: var(--danger);
+            border: 1px solid var(--danger);
+            box-shadow: 0 0 20px rgba(255, 0, 64, 0.2);
+        }
+
+        .status-info {
+            background: rgba(0, 162, 255, 0.2);
+            color: var(--info);
+            border: 1px solid var(--info);
+            box-shadow: 0 0 20px rgba(0, 162, 255, 0.2);
+        }
+
+        /* Loader */
+        .loader {
+            display: inline-block;
+            width: 22px;
+            height: 22px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 25px 0;
+            margin-top: 40px;
+            border-top: var(--cyber-border);
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+
+        /* Instructions */
+        .instructions {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px 20px;
+            margin-top: 20px;
+            backdrop-filter: blur(10px);
+            border: var(--cyber-border);
+        }
+
+        .instructions h3 {
+            margin-bottom: 18px;
+            color: var(--primary);
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .instructions ol {
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 12px;
+            line-height: 1.5;
+            color: #c7d2fe;
+        }
+
+        /* API Status */
+        .api-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 12px;
+            font-size: 0.9rem;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 10px var(--success);
+        }
+
+        .status-indicator.offline {
+            background: var(--danger);
+            box-shadow: 0 0 10px var(--danger);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* OTP Response Area */
+        .otp-response-area {
+            background: rgba(0, 255, 157, 0.1);
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+            border: 1px solid rgba(0, 255, 157, 0.3);
+            backdrop-filter: blur(5px);
+        }
+
+        .otp-response-title {
+            font-weight: 600;
+            color: var(--success);
+            margin-bottom: 12px;
+            font-size: 1rem;
+        }
+
+        .otp-response-data {
+            color: white;
+            word-break: break-all;
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            border: var(--cyber-border);
+            min-height: 80px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        /* Auth Modal Styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 10, 14, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: #0a0a12;
+            border: 2px solid var(--primary);
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 400px;
+            width: 100%;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 0 50px rgba(0, 243, 255, 0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .modal-header i {
+            font-size: 3rem;
+            color: var(--primary);
+            margin-bottom: 15px;
+        }
+
+        .modal-header h2 {
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        .modal-header p {
+            color: #c7d2fe;
+        }
+
+        .auth-input {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--primary);
+            color: white;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .auth-input:focus {
+            outline: none;
+            border-color: var(--secondary);
+            box-shadow: 0 0 15px rgba(255, 0, 230, 0.3);
+        }
+
+        .auth-status {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+            font-weight: 500;
+        }
+
+        .auth-status.success {
+            background: rgba(0, 255, 157, 0.2);
+            color: var(--success);
+            border: 1px solid var(--success);
+            display: block;
+        }
+
+        .auth-status.error {
+            background: rgba(255, 0, 64, 0.2);
+            color: var(--danger);
+            border: 1px solid var(--danger);
+            display: block;
+        }
+
+        /* Corner Profile Button - LEFT SIDE */
+        .corner-profile {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+        }
+
+        .profile-btn {
+            background: linear-gradient(135deg, var(--accent), var(--secondary));
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(119, 0, 255, 0.4);
+            transition: all 0.3s ease;
+            animation: pulse-accent 2s infinite;
+        }
+
+        @keyframes pulse-accent {
+            0%, 100% { box-shadow: 0 5px 20px rgba(119, 0, 255, 0.4); }
+            50% { box-shadow: 0 5px 25px rgba(119, 0, 255, 0.6), 0 0 30px rgba(119, 0, 255, 0.3); }
+        }
+
+        .profile-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 25px rgba(119, 0, 255, 0.6), 0 0 40px rgba(119, 0, 255, 0.4);
+            animation: none;
+        }
+
+        .profile-dropdown {
+            position: absolute;
+            top: 70px;
+            left: 0;
+            background: #0a0a12;
+            border: 2px solid var(--accent);
+            border-radius: 15px;
+            padding: 20px;
+            min-width: 250px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 10px 30px rgba(119, 0, 255, 0.3);
+            display: none;
+            z-index: 1001;
+        }
+
+        .profile-dropdown.active {
+            display: block;
+            animation: dropdownSlide 0.3s ease;
+        }
+
+        @keyframes dropdownSlide {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .profile-info {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: var(--cyber-border);
+        }
+
+        .profile-email {
+            font-size: 0.9rem;
+            color: #c7d2fe;
+            margin-bottom: 10px;
+        }
+
+        .profile-balance {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.1rem;
+        }
+
+        .profile-balance i {
+            color: var(--success);
+        }
+
+        .balance-amount {
+            font-weight: bold;
+            color: var(--success);
+            font-size: 1.2rem;
+        }
+
+        .profile-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .profile-action-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+        }
+
+        .profile-action-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+            border-color: var(--accent);
+        }
+
+        /* Corner History Button - RIGHT SIDE */
+        .corner-history {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .history-btn {
+            background: linear-gradient(135deg, var(--info), #0080ff);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(0, 162, 255, 0.4);
+            transition: all 0.3s ease;
+            animation: pulse-info-btn 2s infinite;
+        }
+
+        @keyframes pulse-info-btn {
+            0%, 100% { box-shadow: 0 5px 20px rgba(0, 162, 255, 0.4); }
+            50% { box-shadow: 0 5px 25px rgba(0, 162, 255, 0.6), 0 0 30px rgba(0, 162, 255, 0.3); }
+        }
+
+        .history-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 25px rgba(0, 162, 255, 0.6), 0 0 40px rgba(0, 162, 255, 0.4);
+            animation: none;
+        }
+
+        .history-dropdown {
+            position: absolute;
+            top: 70px;
+            right: 0;
+            background: #0a0a12;
+            border: 2px solid var(--info);
+            border-radius: 15px;
+            padding: 20px;
+            width: 320px;
+            max-height: 400px;
+            overflow-y: auto;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 10px 30px rgba(0, 162, 255, 0.3);
+            display: none;
+            z-index: 1001;
+        }
+
+        .history-dropdown.active {
+            display: block;
+            animation: dropdownSlide 0.3s ease;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: var(--cyber-border);
+        }
+
+        .history-header h3 {
+            color: var(--info);
+            font-size: 1.2rem;
+        }
+
+        .history-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .history-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .history-number {
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 5px;
+            font-size: 1rem;
+        }
+
+        .history-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-success-dot {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        .status-failed-dot {
+            background: var(--danger);
+            box-shadow: 0 0 8px var(--danger);
+        }
+
+        .status-process-dot {
+            background: var(--warning);
+            box-shadow: 0 0 8px var(--warning);
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-text {
+            color: #c7d2fe;
+        }
+
+        .history-otp {
+            margin-top: 5px;
+            font-size: 0.9rem;
+            color: var(--success);
+            font-weight: bold;
+        }
+
+        .history-timer {
+            margin-top: 5px;
+            font-size: 0.8rem;
+            color: var(--warning);
+            font-family: 'Courier New', monospace;
+        }
+
+        .no-history {
+            text-align: center;
+            padding: 20px;
+            color: #94a3b8;
+            font-style: italic;
+        }
+
+        /* Auto Refresh Indicator */
+        .auto-refresh-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(0, 162, 255, 0.1);
+            border-radius: 8px;
+            border: 1px solid rgba(0, 162, 255, 0.3);
+            font-size: 0.9rem;
+            color: var(--info);
+        }
+
+        .auto-refresh-indicator i {
+            animation: spin 1.5s linear infinite;
+        }
+
+        /* Support Button */
+        .support-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, var(--accent), var(--secondary));
+            color: white;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 5px 20px rgba(119, 0, 255, 0.4);
+            z-index: 100;
+            transition: all 0.3s ease;
+            animation: pulse-support 2s infinite;
+        }
+
+        @keyframes pulse-support {
+            0%, 100% { box-shadow: 0 5px 20px rgba(119, 0, 255, 0.4); }
+            50% { box-shadow: 0 5px 25px rgba(119, 0, 255, 0.6), 0 0 30px rgba(119, 0, 255, 0.3); }
+        }
+
+        .support-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 25px rgba(119, 0, 255, 0.6), 0 0 40px rgba(119, 0, 255, 0.4);
+            animation: none;
+        }
+
+        .support-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 10, 14, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .support-modal-content {
+            background: #0a0a12;
+            border: 2px solid var(--accent);
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 400px;
+            width: 100%;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 0 50px rgba(119, 0, 255, 0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        .support-options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .support-option {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: white;
+        }
+
+        .support-option:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-3px);
+            border-color: var(--accent);
+        }
+
+        .support-option i {
+            font-size: 1.8rem;
+            color: var(--accent);
+        }
+
+        .support-option-text h3 {
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+            color: white;
+        }
+
+        .support-option-text p {
+            font-size: 0.9rem;
+            color: #c7d2fe;
+        }
+
+        /* Add Balance Modal */
+        .balance-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 10, 14, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .balance-modal-content {
+            background: #0a0a12;
+            border: 2px solid var(--success);
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 400px;
+            width: 100%;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 0 50px rgba(0, 255, 157, 0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        .balance-options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .balance-option {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .balance-option:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-3px);
+            border-color: var(--success);
+        }
+
+        .balance-option i {
+            font-size: 1.8rem;
+            color: var(--success);
+        }
+
+        .balance-option-text h3 {
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+            color: white;
+        }
+
+        .balance-option-text p {
+            font-size: 0.9rem;
+            color: #c7d2fe;
+        }
+
+        /* API Keys Modal */
+        .api-keys-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 10, 14, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .api-keys-modal-content {
+            background: #0a0a12;
+            border: 2px solid var(--warning);
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 500px;
+            width: 100%;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 0 50px rgba(255, 209, 102, 0.3);
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        .api-key-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .api-key-value {
+            font-family: monospace;
+            color: var(--warning);
+            font-weight: 600;
+            word-break: break-all;
+            flex: 1;
+            margin-right: 15px;
+        }
+
+        .modal-close-btn {
+            background: linear-gradient(135deg, var(--danger), #e6003c);
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        .modal-close-btn:hover {
+            background: linear-gradient(135deg, #e6003c, var(--danger));
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(255, 0, 64, 0.4);
+        }
+
+        /* Mobile Optimizations */
+        @media (max-width: 480px) {
+            .container {
+                padding: 5px;
+            }
+            
+            .card {
+                padding: 20px 15px;
+                margin-bottom: 20px;
+            }
+            
+            .btn {
+                padding: 16px 20px;
+                font-size: 1rem;
+            }
+            
+            .timer {
+                font-size: 1.8rem;
+                padding: 18px;
+            }
+            
+            .action-buttons {
+                gap: 12px;
+            }
+            
+            .result-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+            
+            .result-value {
+                text-align: left;
+                width: 100%;
+            }
+
+            .corner-profile {
+                position: fixed;
+                top: 15px;
+                left: 15px;
+                z-index: 1000;
+            }
+
+            .corner-history {
+                position: fixed;
+                top: 15px;
+                right: 15px;
+                z-index: 1000;
+            }
+
+            .profile-btn, .history-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 1.3rem;
+            }
+
+            .profile-dropdown, .history-dropdown {
+                position: fixed;
+                top: 70px;
+                width: 90%;
+                max-width: 300px;
+                left: 50%;
+                transform: translateX(-50%);
+            }
+
+            .support-button {
+                bottom: 10px;
+                right: 10px;
+                width: 50px;
+                height: 50px;
+                font-size: 1.3rem;
+            }
+
+            .country-option {
+                padding: 12px 15px 12px 40px;
+            }
+
+            .api-key-item {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+
+            .api-key-value {
+                margin-right: 0;
+                margin-bottom: 10px;
+            }
+        }
+
+        /* Extra small devices */
+        @media (max-width: 360px) {
+            .logo h1 {
+                font-size: 1.8rem;
+            }
+            
+            .card-header h2 {
+                font-size: 1.2rem;
+            }
+            
+            .btn {
+                padding: 14px 18px;
+                font-size: 0.95rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Firebase Auth Modal -->
+    <div id="authModal" class="modal" style="display: flex;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <i class="fas fa-user-shield"></i>
+                <h2>ACCESS PORTAL</h2>
+                <p>Login to access OTP services</p>
+            </div>
+            
+            <input type="email" id="authEmail" class="auth-input" placeholder="Email Address">
+            <input type="password" id="authPassword" class="auth-input" placeholder="Password">
+            
+            <button id="signInBtn" class="btn btn-primary">
+                <i class="fas fa-sign-in-alt"></i> LOGIN
+            </button>
+            
+            <button id="signUpBtn" class="btn btn-success">
+                <i class="fas fa-user-plus"></i> SIGN UP
+            </button>
+            
+            <div id="authStatus" class="auth-status"></div>
+        </div>
+    </div>
+
+    <!-- Add Balance Modal -->
+    <div id="balanceModal" class="balance-modal">
+        <div class="balance-modal-content">
+            <div class="modal-header">
+                <i class="fas fa-wallet"></i>
+                <h2>ADD BALANCE</h2>
+                <p>Choose a payment method</p>
+            </div>
+            
+            <div class="balance-options">
+                <div class="balance-option" id="whatsappOption">
+                    <i class="fab fa-whatsapp"></i>
+                    <div class="balance-option-text">
+                        <h3>WhatsApp Payment</h3>
+                        <p>Contact via WhatsApp for payment</p>
+                    </div>
+                </div>
+                
+                <div class="balance-option" id="telegramOption">
+                    <i class="fab fa-telegram"></i>
+                    <div class="balance-option-text">
+                        <h3>Telegram Payment</h3>
+                        <p>Contact via Telegram for payment</p>
+                    </div>
+                </div>
+            </div>
+            
+            <button id="closeBalanceModal" class="modal-close-btn">
+                <i class="fas fa-times"></i> Close
+            </button>
+        </div>
+    </div>
+
+    <!-- API Keys Modal -->
+    <div id="apiKeysModal" class="api-keys-modal">
+        <div class="api-keys-modal-content">
+            <div class="modal-header">
+                <i class="fas fa-key"></i>
+                <h2>API KEYS</h2>
+                <p>Manage your API access keys</p>
+            </div>
+            
+            <div class="api-keys-list" id="apiKeysList">
+                <!-- API keys will be populated here -->
+            </div>
+            
+            <button id="generateApiKey" class="btn btn-warning">
+                <i class="fas fa-plus"></i> Generate New API Key
+            </button>
+
+            <div class="api-docs">
+                <h4><i class="fas fa-code"></i> API Usage Examples:</h4>
+                <div class="api-url" id="apiUrlExample1">
+                    otpal.vercel.app/api?path=getNumber&ownid=YOUR_KEY
+                </div>
+                <div class="api-url" id="apiUrlExample2">
+                    otpal.vercel.app/api?path=getOtp&ownid=YOUR_KEY&id=REQUEST_ID
+                </div>
+                <div class="api-url" id="apiUrlExample3">
+                    otpal.vercel.app/api?path=getCountries&ownid=YOUR_KEY
+                </div>
+            </div>
+            
+            <button id="closeApiKeysModal" class="modal-close-btn">
+                <i class="fas fa-times"></i> Close
+            </button>
+        </div>
+    </div>
+
+    <!-- Support Modal -->
+    <div id="supportModal" class="support-modal">
+        <div class="support-modal-content">
+            <div class="modal-header">
+                <i class="fas fa-headset"></i>
+                <h2>SUPPORT</h2>
+                <p>Get help with our services</p>
+            </div>
+            
+            <div class="support-options">
+                <a href="https://wa.me/639079249283?text=Hello%20FirexOTP%20Support,%20I%20need%20help%20with%20your%20service." class="support-option" target="_blank">
+                    <i class="fab fa-whatsapp"></i>
+                    <div class="support-option-text">
+                        <h3>WhatsApp Support</h3>
+                        <p>Get instant help via WhatsApp</p>
+                    </div>
+                </a>
+                
+                <a href="http://t.me/Happy_tracer_bot" class="support-option" target="_blank">
+                    <i class="fab fa-telegram"></i>
+                    <div class="support-option-text">
+                        <h3>Telegram Support</h3>
+                        <p>Contact us on Telegram</p>
+                    </div>
+                </a>
+            </div>
+            
+            <button id="closeSupportModal" class="modal-close-btn">
+                <i class="fas fa-times"></i> Close
+            </button>
+        </div>
+    </div>
+
+    <!-- Corner Profile Button - LEFT SIDE -->
+    <div class="corner-profile">
+        <button class="profile-btn" id="profileBtn">
+            <i class="fas fa-user"></i>
+        </button>
+        <div class="profile-dropdown" id="profileDropdown">
+            <div class="profile-info">
+                <div class="profile-email" id="profileEmail">user@example.com</div>
+                <div class="profile-balance">
+                    <i class="fas fa-wallet"></i>
+                    <span>Balance: ₹</span>
+                    <span class="balance-amount" id="profileBalance">0</span>
+                </div>
+            </div>
+            <div class="profile-actions">
+                <button class="profile-action-btn" id="addBalanceProfileBtn">
+                    <i class="fas fa-plus-circle"></i> Add Balance
+                </button>
+                <button class="profile-action-btn" id="apiKeysProfileBtn">
+                    <i class="fas fa-key"></i> API Keys
+                </button>
+                <button class="profile-action-btn" id="logoutProfileBtn">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Corner History Button - RIGHT SIDE -->
+    <div class="corner-history">
+        <button class="history-btn" id="historyBtn">
+            <i class="fas fa-history"></i>
+        </button>
+        <div class="history-dropdown" id="historyDropdown">
+            <div class="history-header">
+                <h3><i class="fas fa-clock-rotate-left"></i> History</h3>
+            </div>
+            <div class="history-list" id="historyList">
+                <!-- History items will be added here dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Support Button -->
+    <div class="support-button" id="supportButton">
+        <i class="fas fa-headset"></i>
+    </div>
+
+    <div class="container">
+        <header>
+            <div class="logo">
+                <i class="fas fa-sim-card"></i>
+                <h1>FirexOTP</h1>
+            </div>
+            <p class="tagline">Virtual Numbers for WhatsApp Verification</p>
+            <div class="service-badge">
+                <i class="fab fa-whatsapp"></i> WhatsApp Verification
+            </div>
+            <div class="api-status">
+                <div class="status-indicator" id="statusIndicator"></div>
+                <span id="statusText">Checking server status...</span>
+            </div>
+        </header>
+
+        <!-- API Key Section -->
+        <div class="api-key-section" id="apiKeySection" style="display: none;">
+            <div class="api-key-header">
+                <i class="fas fa-key"></i>
+                <h3>Your API Key</h3>
+            </div>
+            <div class="api-key-display" id="userApiKeyDisplay">
+                Loading your API key...
+            </div>
+            <div class="api-key-actions">
+                <button class="btn btn-info btn-sm" id="copyApiKeyBtn">
+                    <i class="fas fa-copy"></i> Copy Key
+                </button>
+                <button class="btn btn-warning btn-sm" id="showApiDocsBtn">
+                    <i class="fas fa-book"></i> API Docs
+                </button>
+            </div>
+        </div>
+
+        <!-- Country Selector -->
+        <div class="country-selector">
+            <input type="text" id="countrySearch" class="country-search" placeholder="🔍 Search countries...">
+            
+            <div class="selected-country" id="selectedCountry" style="display: none;">
+                <div class="selected-info">
+                    <span id="selectedFlag">🇵🇭</span>
+                    <span id="selectedName">WhatsApp Philippines</span>
+                </div>
+                <div class="selected-price" id="selectedPrice">₹52</div>
+            </div>
+
+            <div class="country-dropdown" id="countryDropdown">
+                <!-- Countries will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-mobile-alt"></i>
+                <h2>Get Virtual Number</h2>
+            </div>
+            
+            <div id="statusMessage" class="status-message"></div>
+            
+            <button id="getNumberBtn" class="btn btn-primary">
+                <i class="fas fa-sim-card"></i> Get Virtual Number - <span id="buttonPrice">₹52</span>
+            </button>
+            
+            <div id="numberResult" class="result-area">
+                <div class="result-item">
+                    <span class="result-label">Request ID:</span>
+                    <span id="numberId" class="result-value">-</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">Phone Number:</span>
+                    <span id="phoneNumber" class="result-value">-</span>
+                </div>
+                
+                <div class="timer">
+                    Time Left: <span id="countdown">15:00</span>
+                </div>
+                
+                <div class="action-buttons">
+                    <button id="refreshOtpBtn" class="btn btn-success">
+                        <i class="fas fa-sync-alt"></i> Refresh OTP
+                    </button>
+                    <button id="cancelNumberBtn" class="btn btn-danger">
+                        <i class="fas fa-times-circle"></i> Cancel
+                    </button>
+                </div>
+
+                <!-- Auto Refresh Indicator -->
+                <div class="auto-refresh-indicator" id="autoRefreshIndicator" style="display: none;">
+                    <i class="fas fa-sync-alt"></i>
+                    <span>Auto-refreshing every 10 seconds...</span>
+                </div>
+            </div>
+            
+            <div id="otpResult" class="result-area">
+                <div class="result-item">
+                    <span class="result-label">OTP Code:</span>
+                    <span id="otpCode" class="result-value">-</span>
+                </div>
+                <div class="result-item">
+                    <span class="result-label">Status:</span>
+                    <span id="otpStatus" class="result-value">Waiting for OTP...</span>
+                </div>
+                
+                <div class="otp-response-area">
+                    <div class="otp-response-title">API Raw Response:</div>
+                    <div id="rawApiResponse" class="otp-response-data">
+                        No response yet
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3><i class="fas fa-info-circle"></i> How to Use:</h3>
+            <ol>
+                <li>Select a country and service from the dropdown</li>
+                <li>Click "Get Virtual Number" to receive a virtual number</li>
+                <li>Use this number in WhatsApp for verification</li>
+                <li>System will automatically check for OTP every 10 seconds</li>
+                <li>If no code received, click "Cancel" to release the number</li>
+                <li>Each number is reserved for 15 minutes only</li>
+                <li><strong>Amount will be deducted based on selected service</strong></li>
+                <li>Amount will be refunded if cancelled within 15 minutes</li>
+            </ol>
+        </div>
+        
+        <footer>
+            <p>© 2025 FirexOTP Virtual Number Service. All rights reserved.</p>
+            <p>Secure system Integration - Your personal info protected are you like my service</p>
+        </footer>
+    </div>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCpvAAef2kZ_V5NomsN_VkmYRCU-q4ECXA",
+            authDomain: "happy-seller-3d85b.firebaseapp.com",
+            databaseURL: "https://happy-seller-3d85b-default-rtdb.firebaseio.com",
+            projectId: "happy-seller-3d85b",
+            storageBucket: "happy-seller-3d85b.firebasestorage.app",
+            messagingSenderId: "992869798959",
+            appId: "1:992869798959:web:03879929680e45610a62da",
+            measurementId: "G-476CG6EE86"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
+
+        // Set session persistence to LOCAL
+        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+        // API URLs
+        const API_BASE = '/api?path=';
+        
+        // Global Variables
+        let currentId = null;
+        let countdownTimer = null;
+        let timeLeft = 900;
+        let serverOnline = false;
+        let timerExpired = false;
+        let currentUser = null;
+        let currentTransaction = null;
+        let autoRefundTimer = null;
+        let activeTransaction = null;
+        let autoRefreshInterval = null;
+        let selectedCountry = 'philippines_51';
+        let selectedPrice = 52;
+        let CURRENT_USER_OWNID = null;
+
+        // Countries Database
+        const countries = {
+            'india_66': { code: '66', name: 'WhatsApp Indian', country: 'India', price: 140, flag: '🇮🇳' },
+            'india_115': { code: '115', name: 'WhatsApp Indian', country: 'India', price: 103, flag: '🇮🇳' },
+            'vietnam_118': { code: '118', name: 'WhatsApp Vietnam', country: 'Vietnam', price: 61, flag: '🇻🇳' },
+            'southafrica_52': { code: '52', name: 'WhatsApp South Africa', country: 'South Africa', price: 45, flag: '🇿🇦' },
+            'colombia_53': { code: '53', name: 'WhatsApp Colombia', country: 'Colombia', price: 71, flag: '🇨🇴' },
+            'philippines_51': { code: '51', name: 'WhatsApp Philippines', country: 'Philippines', price: 52, flag: '🇵🇭' },
+            'philippines2_117': { code: '117', name: 'WhatsApp Philippines 2', country: 'Philippines', price: 64, flag: '🇵🇭' }
+        };
+
+        // DOM Elements
+        const getNumberBtn = document.getElementById('getNumberBtn');
+        const refreshOtpBtn = document.getElementById('refreshOtpBtn');
+        const cancelNumberBtn = document.getElementById('cancelNumberBtn');
+        const numberResult = document.getElementById('numberResult');
+        const otpResult = document.getElementById('otpResult');
+        const statusMessage = document.getElementById('statusMessage');
+        const countdownElement = document.getElementById('countdown');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const rawApiResponse = document.getElementById('rawApiResponse');
+        const autoRefreshIndicator = document.getElementById('autoRefreshIndicator');
+        const countrySearch = document.getElementById('countrySearch');
+        const countryDropdown = document.getElementById('countryDropdown');
+        const selectedCountryEl = document.getElementById('selectedCountry');
+        const selectedFlag = document.getElementById('selectedFlag');
+        const selectedName = document.getElementById('selectedName');
+        const selectedPriceEl = document.getElementById('selectedPrice');
+        const buttonPrice = document.getElementById('buttonPrice');
+        const apiKeySection = document.getElementById('apiKeySection');
+        const userApiKeyDisplay = document.getElementById('userApiKeyDisplay');
+        const copyApiKeyBtn = document.getElementById('copyApiKeyBtn');
+        const showApiDocsBtn = document.getElementById('showApiDocsBtn');
+
+        // ✅ Initialize Country Selector
+        function initializeCountrySelector() {
+            const countryGroups = {};
+            
+            Object.entries(countries).forEach(([key, config]) => {
+                if (!countryGroups[config.country]) {
+                    countryGroups[config.country] = [];
+                }
+                countryGroups[config.country].push({ key, ...config });
+            });
+
+            let html = '';
+            Object.entries(countryGroups).forEach(([country, options]) => {
+                const firstOption = options[0];
+                html += `
+                    <div class="country-group">
+                        <div class="country-header" data-country="${country}">
+                            <i class="fas fa-chevron-right"></i>
+                            <span>${firstOption.flag} ${country}</span>
+                        </div>
+                        <div class="country-options">
+                `;
+                
+                options.forEach(option => {
+                    html += `
+                        <div class="country-option" data-key="${option.key}">
+                            <span class="option-name">${option.name}</span>
+                            <span class="option-price">₹${option.price}</span>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+
+            countryDropdown.innerHTML = html;
+            selectCountry('philippines_51');
+
+            document.querySelectorAll('.country-header').forEach(header => {
+                header.addEventListener('click', function() {
+                    const options = this.nextElementSibling;
+                    this.classList.toggle('active');
+                    options.classList.toggle('active');
+                });
+            });
+
+            document.querySelectorAll('.country-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    const key = this.getAttribute('data-key');
+                    selectCountry(key);
+                });
+            });
+
+            countrySearch.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                filterCountries(searchTerm);
+            });
+        }
+
+        function filterCountries(searchTerm) {
+            const groups = document.querySelectorAll('.country-group');
+            
+            groups.forEach(group => {
+                const header = group.querySelector('.country-header');
+                const options = group.querySelector('.country-options');
+                const countryName = header.getAttribute('data-country').toLowerCase();
+                
+                let hasVisibleOptions = false;
+                const optionElements = options.querySelectorAll('.country-option');
+                
+                optionElements.forEach(option => {
+                    const optionName = option.querySelector('.option-name').textContent.toLowerCase();
+                    const optionText = countryName + ' ' + optionName;
+                    
+                    if (optionText.includes(searchTerm)) {
+                        option.style.display = 'flex';
+                        hasVisibleOptions = true;
+                    } else {
+                        option.style.display = 'none';
+                    }
+                });
+                
+                if (countryName.includes(searchTerm) || hasVisibleOptions || searchTerm === '') {
+                    group.style.display = 'block';
+                    if (searchTerm) {
+                        header.classList.add('active');
+                        options.classList.add('active');
+                    }
+                } else {
+                    group.style.display = 'none';
+                }
+            });
+        }
+
+        function selectCountry(key) {
+            const config = countries[key];
+            if (!config) return;
+
+            selectedCountry = key;
+            selectedPrice = config.price;
+
+            selectedFlag.textContent = config.flag;
+            selectedName.textContent = config.name;
+            selectedPriceEl.textContent = `₹${config.price}`;
+            buttonPrice.textContent = `₹${config.price}`;
+            selectedCountryEl.style.display = 'flex';
+
+            document.querySelectorAll('.country-option').forEach(option => {
+                option.classList.remove('selected');
+                if (option.getAttribute('data-key') === key) {
+                    option.classList.add('selected');
+                }
+            });
+
+            countryDropdown.style.display = 'none';
+        }
+
+        // ✅ Firebase Auth State Listener with OWNID setup
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                currentUser = user;
+                document.getElementById('profileEmail').textContent = user.email;
+                document.getElementById('authModal').style.display = 'none';
+                
+                // ✅ Get user data including OWNID
+                const userSnapshot = await database.ref('users/' + user.uid).once('value');
+                const userData = userSnapshot.val();
+                
+                if (userData) {
+                    CURRENT_USER_OWNID = userData.ownId;
+                    document.getElementById('profileBalance').textContent = userData.wallet || 0;
+                    
+                    // ✅ Show API Key section
+                    apiKeySection.style.display = 'block';
+                    userApiKeyDisplay.textContent = CURRENT_USER_OWNID;
+                    
+                    // ✅ Update API URL examples with actual key
+                    document.getElementById('apiUrlExample1').textContent = 
+                        `otpal.vercel.app/api?path=getNumber&ownid=${CURRENT_USER_OWNID}`;
+                    document.getElementById('apiUrlExample2').textContent = 
+                        `otpal.vercel.app/api?path=getOtp&ownid=${CURRENT_USER_OWNID}&id=REQUEST_ID`;
+                    document.getElementById('apiUrlExample3').textContent = 
+                        `otpal.vercel.app/api?path=getCountries&ownid=${CURRENT_USER_OWNID}`;
+                }
+                
+                setupWalletListener(user.uid);
+                checkActiveTransaction(user.uid);
+                loadTransactionHistory(user.uid);
+                
+                console.log('User logged in with OWNID:', CURRENT_USER_OWNID);
+                
+                setTimeout(() => {
+                    if (currentUser && currentUser.uid === user.uid) {
+                        auth.signOut();
+                        showStatus('Session expired. Please login again.', 'info');
+                    }
+                }, 3600000);
+            } else {
+                currentUser = null;
+                CURRENT_USER_OWNID = null;
+                document.getElementById('authModal').style.display = 'flex';
+                apiKeySection.style.display = 'none';
+                resetTransaction();
+            }
+        });
+
+        // ✅ API Key Management
+        copyApiKeyBtn.addEventListener('click', () => {
+            if (CURRENT_USER_OWNID) {
+                navigator.clipboard.writeText(CURRENT_USER_OWNID).then(() => {
+                    showStatus('API key copied to clipboard!', 'success');
+                });
+            }
+        });
+
+        showApiDocsBtn.addEventListener('click', () => {
+            document.getElementById('apiKeysModal').style.display = 'flex';
+        });
+
+        document.getElementById('apiKeysProfileBtn').addEventListener('click', () => {
+            document.getElementById('apiKeysModal').style.display = 'flex';
+            document.getElementById('profileDropdown').classList.remove('active');
+        });
+
+        document.getElementById('closeApiKeysModal').addEventListener('click', () => {
+            document.getElementById('apiKeysModal').style.display = 'none';
+        });
+
+        document.getElementById('generateApiKey').addEventListener('click', async () => {
+            if (!currentUser) return;
+            
+            try {
+                const newOwnId = 'firx_' + Math.random().toString(36).substr(2, 9);
+                
+                // Update user record
+                await database.ref('users/' + currentUser.uid).update({
+                    ownId: newOwnId
+                });
+                
+                // Update quick lookup
+                await database.ref('userApiKeys/' + newOwnId).set(currentUser.uid);
+                
+                // Update UI
+                CURRENT_USER_OWNID = newOwnId;
+                userApiKeyDisplay.textContent = newOwnId;
+                
+                showStatus('New API key generated successfully!', 'success');
+            } catch (error) {
+                showStatus('Error generating API key: ' + error.message, 'error');
+            }
+        });
+
+        // Profile Dropdown Toggle
+        document.getElementById('profileBtn').addEventListener('click', function(e) {
+            e.stopPropagation();
+            document.getElementById('profileDropdown').classList.toggle('active');
+            document.getElementById('historyDropdown').classList.remove('active');
+        });
+
+        // History Dropdown Toggle
+        document.getElementById('historyBtn').addEventListener('click', function(e) {
+            e.stopPropagation();
+            document.getElementById('historyDropdown').classList.toggle('active');
+            document.getElementById('profileDropdown').classList.remove('active');
+        });
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function() {
+            document.getElementById('profileDropdown').classList.remove('active');
+            document.getElementById('historyDropdown').classList.remove('active');
+        });
+
+        // Start Auto Refresh for OTP
+        function startAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+            
+            autoRefreshIndicator.style.display = 'flex';
+            
+            autoRefreshInterval = setInterval(async () => {
+                if (currentId && !timerExpired && serverOnline) {
+                    await getOtp(true);
+                } else {
+                    stopAutoRefresh();
+                }
+            }, 10000);
+        }
+
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+            autoRefreshIndicator.style.display = 'none';
+        }
+
+        // Check for active transaction on login
+        async function checkActiveTransaction(uid) {
+            try {
+                const snapshot = await database.ref('users/' + uid + '/activeTransaction').once('value');
+                const activeTrans = snapshot.val();
+                
+                if (activeTrans && activeTrans.id && activeTrans.endTime > Date.now()) {
+                    activeTransaction = activeTrans;
+                    currentId = activeTrans.id;
+                    document.getElementById('numberId').textContent = activeTrans.id;
+                    document.getElementById('phoneNumber').textContent = activeTrans.number;
+                    numberResult.classList.add('active');
+                    otpResult.classList.add('active');
+                    
+                    const remainingTime = Math.floor((activeTrans.endTime - Date.now()) / 1000);
+                    if (remainingTime > 0) {
+                        timeLeft = remainingTime;
+                        startCountdown();
+                        startAutoRefresh();
+                    } else {
+                        await database.ref('users/' + uid + '/activeTransaction').remove();
+                        autoCancelNumber();
+                    }
+                    
+                    showStatus('Resumed active transaction', 'info');
+                }
+            } catch (error) {
+                console.error('Error checking active transaction:', error);
+            }
+        }
+
+        // Load transaction history
+        async function loadTransactionHistory(uid) {
+            try {
+                const snapshot = await database.ref('users/' + uid + '/transactions').orderByChild('timestamp').once('value');
+                const transactions = snapshot.val() || {};
+                const historyList = document.getElementById('historyList');
+                
+                historyList.innerHTML = '';
+                
+                const transactionArray = Object.values(transactions).sort((a, b) => b.timestamp - a.timestamp);
+                
+                if (transactionArray.length === 0) {
+                    historyList.innerHTML = '<div class="no-history">No history available</div>';
+                    return;
+                }
+                
+                transactionArray.forEach(trans => {
+                    const historyItem = document.createElement('div');
+                    historyItem.className = 'history-item';
+                    
+                    let statusDotClass = 'status-success-dot';
+                    let statusText = 'Success';
+                    let otpHtml = '';
+                    let timerHtml = '';
+                    
+                    if (trans.status === 'active') {
+                        statusDotClass = 'status-process-dot';
+                        statusText = 'Processing';
+                        const remainingTime = trans.endTime ? Math.floor((trans.endTime - Date.now()) / 1000) : 0;
+                        if (remainingTime > 0) {
+                            const minutes = Math.floor(remainingTime / 60);
+                            const seconds = remainingTime % 60;
+                            timerHtml = `<div class="history-timer">Timer: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}</div>`;
+                        }
+                    } else if (trans.status === 'cancelled' || trans.status === 'failed') {
+                        statusDotClass = 'status-failed-dot';
+                        statusText = trans.status === 'cancelled' ? 'Cancelled' : 'Failed';
+                    } else if (trans.status === 'success' && trans.otp) {
+                        otpHtml = `<div class="history-otp">OTP: ${trans.otp}</div>`;
+                    }
+                    
+                    historyItem.innerHTML = `
+                        <div class="history-number">${trans.number || 'N/A'}</div>
+                        <div class="history-status">
+                            <div class="status-dot ${statusDotClass}"></div>
+                            <div class="status-text">${statusText}</div>
+                        </div>
+                        ${otpHtml}
+                        ${timerHtml}
+                    `;
+                    
+                    historyList.appendChild(historyItem);
+                });
+            } catch (error) {
+                console.error('Error loading transaction history:', error);
+                document.getElementById('historyList').innerHTML = '<div class="no-history">Error loading history</div>';
+            }
+        }
+
+        // Save transaction to history
+        async function saveTransaction(uid, transactionData) {
+            try {
+                const transactionRef = database.ref('users/' + uid + '/transactions').push();
+                await transactionRef.set({
+                    ...transactionData,
+                    timestamp: Date.now()
+                });
+                
+                loadTransactionHistory(uid);
+            } catch (error) {
+                console.error('Error saving transaction:', error);
+            }
+        }
+
+        // Set active transaction
+        async function setActiveTransaction(uid, transactionData) {
+            try {
+                await database.ref('users/' + uid + '/activeTransaction').set({
+                    ...transactionData,
+                    endTime: Date.now() + (15 * 60 * 1000)
+                });
+            } catch (error) {
+                console.error('Error setting active transaction:', error);
+            }
+        }
+
+        // Clear active transaction
+        async function clearActiveTransaction(uid) {
+            try {
+                await database.ref('users/' + uid + '/activeTransaction').remove();
+            } catch (error) {
+                console.error('Error clearing active transaction:', error);
+            }
+        }
+
+        // Auth Event Handlers
+        document.getElementById('signUpBtn').addEventListener('click', signUp);
+        document.getElementById('signInBtn').addEventListener('click', signIn);
+        document.getElementById('logoutProfileBtn').addEventListener('click', logout);
+
+        // Add Balance Modal Handlers
+        document.getElementById('addBalanceProfileBtn').addEventListener('click', () => {
+            document.getElementById('balanceModal').style.display = 'flex';
+            document.getElementById('profileDropdown').classList.remove('active');
+        });
+        
+        document.getElementById('closeBalanceModal').addEventListener('click', () => {
+            document.getElementById('balanceModal').style.display = 'none';
+        });
+        
+        document.getElementById('whatsappOption').addEventListener('click', () => {
+            window.open('https://wa.me/639079249283?text=Please%20send%20qr%20and%20add%20my%20wallet%20balance%20i%20will%20payment%20you%20I%20like%20your%20service.', '_blank');
+        });
+        
+        document.getElementById('telegramOption').addEventListener('click', () => {
+            window.open('http://t.me/Happy_tracer_bot', '_blank');
+        });
+
+        // Support Modal Handlers
+        document.getElementById('supportButton').addEventListener('click', () => {
+            document.getElementById('supportModal').style.display = 'flex';
+        });
+        
+        document.getElementById('closeSupportModal').addEventListener('click', () => {
+            document.getElementById('supportModal').style.display = 'none';
+        });
+
+        // Clean Firebase error messages
+        function cleanFirebaseError(error) {
+            const errorMessage = error.message || error.toString();
+            
+            let cleanMessage = errorMessage
+                .replace(/Firebase:/g, '')
+                .replace(/\(auth\/[^)]+\)/g, '')
+                .replace(/\[.*\]/g, '')
+                .trim();
+            
+            if (errorMessage.includes('auth/wrong-password') || errorMessage.includes('invalid-credential')) {
+                return 'Wrong password. Please check your password and try again.';
+            } else if (errorMessage.includes('auth/user-not-found')) {
+                return 'No account found with this email. Please sign up first.';
+            } else if (errorMessage.includes('auth/email-already-in-use')) {
+                return 'This email is already registered. Please login instead.';
+            } else if (errorMessage.includes('auth/weak-password')) {
+                return 'Password is too weak. Please use a stronger password.';
+            } else if (errorMessage.includes('auth/invalid-email')) {
+                return 'Invalid email address. Please check your email format.';
+            } else if (errorMessage.includes('auth/network-request-failed')) {
+                return 'Network error. Please check your internet connection.';
+            } else if (errorMessage.includes('auth/too-many-requests')) {
+                return 'Too many failed attempts. Please try again later.';
+            } else if (errorMessage.includes('auth/requires-recent-login')) {
+                return 'Session expired. Please login again.';
+            } else if (cleanMessage) {
+                return cleanMessage.charAt(0).toUpperCase() + cleanMessage.slice(1);
+            } else {
+                return 'An error occurred. Please try again.';
+            }
+        }
+
+        async function signUp() {
+            const email = document.getElementById('authEmail').value;
+            const password = document.getElementById('authPassword').value;
+            const statusEl = document.getElementById('authStatus');
+            
+            if (!email || !password) {
+                showAuthStatus('Please enter email and password', 'error');
+                return;
+            }
+            
+            try {
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+                
+                // ✅ Generate OWNID for new user
+                const ownId = 'firx_' + Math.random().toString(36).substr(2, 9);
+                
+                // Create user in database with OWNID
+                await database.ref('users/' + user.uid).set({
+                    email: user.email,
+                    wallet: 0,
+                    ownId: ownId,
+                    joined: Date.now()
+                });
+                
+                // Create quick lookup
+                await database.ref('userApiKeys/' + ownId).set(user.uid);
+                
+                showAuthStatus('Account created successfully!', 'success');
+            } catch (error) {
+                const cleanError = cleanFirebaseError(error);
+                showAuthStatus(cleanError, 'error');
+            }
+        }
+
+        async function signIn() {
+            const email = document.getElementById('authEmail').value;
+            const password = document.getElementById('authPassword').value;
+            
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                showAuthStatus('Login successful!', 'success');
+            } catch (error) {
+                const cleanError = cleanFirebaseError(error);
+                showAuthStatus(cleanError, 'error');
+            }
+        }
+
+        function logout() {
+            auth.signOut();
+            resetTransaction();
+        }
+
+        function showAuthStatus(message, type) {
+            const statusEl = document.getElementById('authStatus');
+            statusEl.textContent = message;
+            statusEl.className = 'auth-status';
+            
+            if (type === 'success') {
+                statusEl.classList.add('success');
+            } else {
+                statusEl.classList.add('error');
+            }
+        }
+
+        // Wallet Management Functions
+        function setupWalletListener(uid) {
+            database.ref('users/' + uid + '/wallet').on('value', (snapshot) => {
+                const balance = snapshot.val() || 0;
+                document.getElementById('profileBalance').textContent = balance;
+            });
+        }
+
+        function resetTransaction() {
+            if (autoRefundTimer) {
+                clearTimeout(autoRefundTimer);
+                autoRefundTimer = null;
+            }
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+                autoRefreshInterval = null;
+            }
+            currentTransaction = null;
+            stopAutoRefresh();
+        }
+
+        // Event Listeners for OTP Functions
+        getNumberBtn.addEventListener('click', getNumber);
+        refreshOtpBtn.addEventListener('click', () => getOtp(false));
+        cancelNumberBtn.addEventListener('click', cancelNumber);
+
+        // Server status check
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(API_BASE + 'health');
+                const data = await response.json();
+                
+                if (data.status === 'OK') {
+                    serverOnline = true;
+                    statusIndicator.style.background = 'var(--success)';
+                    statusText.textContent = 'Server is online';
+                    statusText.style.color = 'var(--success)';
+                }
+            } catch (error) {
+                serverOnline = false;
+                statusIndicator.style.background = 'var(--danger)';
+                statusText.textContent = 'Server is offline';
+                statusText.style.color = 'var(--danger)';
+                console.error('Server status check failed:', error);
+            }
+        }
+
+        // ✅ Get Number Function - Updated with OWNID
+        async function getNumber() {
+            if (!currentUser) {
+                showStatus('Please login first to use OTP service', 'error');
+                document.getElementById('authModal').style.display = 'flex';
+                return;
+            }
+
+            if (!CURRENT_USER_OWNID) {
+                showStatus('API key not available. Please try logging in again.', 'error');
+                return;
+            }
+
+            if (!serverOnline) {
+                showStatus('Server is offline. Please try again later.', 'error');
+                return;
+            }
+
+            // Show loading state
+            getNumberBtn.innerHTML = '<div class="loader"></div> Getting Number...';
+            getNumberBtn.disabled = true;
+            
+            try {
+                // ✅ API call with OWNID
+                const url = API_BASE + 'getNumber&ownid=' + CURRENT_USER_OWNID + '&countryKey=' + encodeURIComponent(selectedCountry);
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update UI with the received data
+                    document.getElementById('numberId').textContent = data.id;
+                    document.getElementById('phoneNumber').textContent = data.number;
+                    numberResult.classList.add('active');
+                    otpResult.classList.add('active');
+                    
+                    // Store the current ID
+                    currentId = data.id;
+                    
+                    // Reset timer status
+                    timerExpired = false;
+                    
+                    // Enable buttons
+                    refreshOtpBtn.disabled = false;
+                    cancelNumberBtn.disabled = false;
+                    
+                    // Start countdown timer (15 minutes)
+                    startCountdown();
+                    
+                    // Start auto refresh for OTP
+                    startAutoRefresh();
+                    
+                    // Save active transaction
+                    await setActiveTransaction(currentUser.uid, {
+                        id: data.id,
+                        number: data.number,
+                        status: 'active',
+                        country: selectedCountry,
+                        price: selectedPrice
+                    });
+                    
+                    // Save to history
+                    await saveTransaction(currentUser.uid, {
+                        id: data.id,
+                        number: data.number,
+                        status: 'active',
+                        country: selectedCountry,
+                        price: selectedPrice,
+                        otp: null
+                    });
+                    
+                    // Show success message
+                    showStatus(`Virtual number successfully obtained! ₹${data.price} deducted. Balance: ₹${data.balance}`, 'success');
+                } else {
+                    showStatus('Failed to get number: ' + (data.message || data.error), 'error');
+                }
+            } catch (error) {
+                console.error('Error getting number:', error);
+                showStatus('Network error: ' + error.message, 'error');
+            } finally {
+                // Reset button state
+                getNumberBtn.innerHTML = `<i class="fas fa-sim-card"></i> Get Virtual Number - ₹${selectedPrice}`;
+                getNumberBtn.disabled = false;
+            }
+        }
+        
+        // ✅ Get OTP Function - Updated with OWNID
+        async function getOtp(isAutoRefresh = false) {
+            if (!currentId) {
+                if (!isAutoRefresh) {
+                    showStatus('Please get a number first.', 'error');
+                }
+                return;
+            }
+            
+            if (timerExpired) {
+                if (!isAutoRefresh) {
+                    showStatus('Timer expired. Please get a new number.', 'error');
+                }
+                stopAutoRefresh();
+                return;
+            }
+            
+            if (!serverOnline) {
+                if (!isAutoRefresh) {
+                    showStatus('Server is offline. Please try again later.', 'error');
+                }
+                return;
+            }
+
+            if (!CURRENT_USER_OWNID) {
+                if (!isAutoRefresh) {
+                    showStatus('API key not available.', 'error');
+                }
+                return;
+            }
+
+            // Only show loading state for manual refresh
+            if (!isAutoRefresh) {
+                refreshOtpBtn.innerHTML = '<div class="loader"></div> Checking...';
+                refreshOtpBtn.disabled = true;
+            }
+            
+            try {
+                // ✅ API call with OWNID
+                const url = API_BASE + 'getOtp&ownid=' + CURRENT_USER_OWNID + '&id=' + encodeURIComponent(currentId);
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                // Display raw API response
+                rawApiResponse.textContent = JSON.stringify(data, null, 2);
+                rawApiResponse.style.background = 'rgba(0, 255, 157, 0.2)';
+                
+                if (data.success) {
+                    // Update OTP status
+                    document.getElementById('otpStatus').textContent = 'API Response Received';
+                    
+                    // Check if OTP is received (6 digit number)
+                    const otpMatch = data.data && data.data.match(/\b\d{6}\b/);
+                    
+                    if (otpMatch) {
+                        const otpCode = otpMatch[0];
+                        document.getElementById('otpCode').textContent = otpCode;
+                        document.getElementById('otpStatus').textContent = 'OTP Received!';
+                        document.getElementById('otpCode').style.color = 'var(--success)';
+                        document.getElementById('otpCode').style.fontWeight = 'bold';
+                        document.getElementById('otpCode').style.fontSize = '1.2rem';
+                        
+                        // Update history
+                        await saveTransaction(currentUser.uid, {
+                            id: currentId,
+                            number: document.getElementById('phoneNumber').textContent,
+                            status: 'success',
+                            country: selectedCountry,
+                            price: selectedPrice,
+                            otp: otpCode
+                        });
+                        
+                        // Clear active transaction
+                        await clearActiveTransaction(currentUser.uid);
+                        
+                        // Stop auto refresh when OTP is received
+                        stopAutoRefresh();
+                        
+                        // Show success message
+                        if (!isAutoRefresh) {
+                            showStatus(`OTP successfully received!`, 'success');
+                        } else {
+                            showStatus(`OTP automatically received!`, 'success');
+                        }
+                        
+                        // Stop the countdown timer when OTP is received
+                        if (countdownTimer) {
+                            clearInterval(countdownTimer);
+                            countdownElement.textContent = 'OTP Received!';
+                            countdownElement.style.color = 'var(--success)';
+                        }
+                    } else {
+                        document.getElementById('otpStatus').textContent = 'No OTP Received - ' + data.data;
+                        document.getElementById('otpStatus').style.color = 'var(--warning)';
+                        if (!isAutoRefresh) {
+                            showStatus('No OTP received yet. Response: ' + data.data, 'info');
+                        }
+                    }
+                } else {
+                    document.getElementById('otpStatus').textContent = 'Error: ' + (data.error || 'Unknown error');
+                    document.getElementById('otpStatus').style.color = 'var(--danger)';
+                    if (!isAutoRefresh) {
+                        showStatus('Failed to check OTP: ' + (data.error || 'Unknown error'), 'error');
+                    }
+                }
+            } catch (error) {
+                console.error('Error getting OTP:', error);
+                rawApiResponse.textContent = 'Error: ' + error.message;
+                rawApiResponse.style.background = 'rgba(255, 0, 64, 0.2)';
+                if (!isAutoRefresh) {
+                    showStatus('Network error: ' + error.message, 'error');
+                }
+            } finally {
+                // Reset button state (only for manual refresh)
+                if (!isAutoRefresh) {
+                    refreshOtpBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh OTP';
+                    refreshOtpBtn.disabled = timerExpired;
+                }
+            }
+        }
+        
+        // ✅ Cancel Number Function - Updated with OWNID
+        async function cancelNumber() {
+            if (!currentId) {
+                showStatus('No active number to cancel.', 'error');
+                return;
+            }
+            
+            if (timerExpired) {
+                showStatus('Timer already expired. Number is already cancelled.', 'error');
+                return;
+            }
+            
+            if (!serverOnline) {
+                showStatus('Server is offline. Please try again later.', 'error');
+                return;
+            }
+
+            if (!CURRENT_USER_OWNID) {
+                showStatus('API key not available.', 'error');
+                return;
+            }
+
+            // Show loading state
+            cancelNumberBtn.innerHTML = '<div class="loader"></div> Cancelling...';
+            cancelNumberBtn.disabled = true;
+            
+            try {
+                // ✅ API call with OWNID
+                const url = API_BASE + 'cancelNumber&ownid=' + CURRENT_USER_OWNID + '&id=' + encodeURIComponent(currentId);
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update history
+                    await saveTransaction(currentUser.uid, {
+                        id: currentId,
+                        number: document.getElementById('phoneNumber').textContent,
+                        status: 'cancelled',
+                        country: selectedCountry,
+                        price: selectedPrice,
+                        otp: null
+                    });
+                    
+                    // Clear active transaction
+                    await clearActiveTransaction(currentUser.uid);
+                    
+                    // Stop auto refresh
+                    stopAutoRefresh();
+                    
+                    // Reset UI
+                    resetUI();
+                    
+                    // Show success message
+                    showStatus(`Number cancelled successfully. ₹${data.refundAmount || selectedPrice} refunded to wallet. New balance: ₹${data.balance}`, 'success');
+                } else {
+                    showStatus('Failed to cancel number: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error cancelling number:', error);
+                showStatus('Network error: ' + error.message, 'error');
+            } finally {
+                // Reset button state
+                cancelNumberBtn.innerHTML = '<i class="fas fa-times-circle"></i> Cancel';
+                cancelNumberBtn.disabled = timerExpired;
+            }
+        }
+        
+        // Reset UI Function
+        function resetUI() {
+            numberResult.classList.remove('active');
+            otpResult.classList.remove('active');
+            document.getElementById('numberId').textContent = '-';
+            document.getElementById('phoneNumber').textContent = '-';
+            document.getElementById('otpCode').textContent = '-';
+            document.getElementById('otpStatus').textContent = 'Waiting for OTP...';
+            document.getElementById('otpStatus').style.color = 'white';
+            rawApiResponse.textContent = 'No response yet';
+            rawApiResponse.style.background = 'rgba(0, 0, 0, 0.3)';
+            
+            // Stop the countdown timer
+            if (countdownTimer) {
+                clearInterval(countdownTimer);
+            }
+            
+            // Stop auto refresh
+            stopAutoRefresh();
+            
+            // Reset currentId
+            currentId = null;
+            timerExpired = false;
+            
+            // Enable buttons
+            refreshOtpBtn.disabled = false;
+            cancelNumberBtn.disabled = false;
+        }
+        
+        // Countdown Timer Function (15 minutes)
+        function startCountdown() {
+            timeLeft = 900;
+            updateCountdownDisplay();
+            
+            if (countdownTimer) {
+                clearInterval(countdownTimer);
+            }
+            
+            countdownTimer = setInterval(() => {
+                timeLeft--;
+                updateCountdownDisplay();
+                
+                if (timeLeft <= 0) {
+                    clearInterval(countdownTimer);
+                    timerExpired = true;
+                    countdownElement.textContent = 'Time Expired!';
+                    countdownElement.style.color = 'var(--danger)';
+                    
+                    // Disable buttons when timer expires
+                    refreshOtpBtn.disabled = true;
+                    cancelNumberBtn.disabled = true;
+                    
+                    // Stop auto refresh when timer expires
+                    stopAutoRefresh();
+                    
+                    // Automatically cancel the number when time runs out
+                    autoCancelNumber();
+                    showStatus('Time expired. Number automatically cancelled.', 'info');
+                }
+            }, 1000);
+        }
+
+        // Auto cancel number when timer expires
+        async function autoCancelNumber() {
+            if (!currentId || !serverOnline || !CURRENT_USER_OWNID) return;
+            
+            try {
+                await fetch(API_BASE + 'cancelNumber&ownid=' + CURRENT_USER_OWNID + '&id=' + encodeURIComponent(currentId));
+                
+                // Update history
+                await saveTransaction(currentUser.uid, {
+                    id: currentId,
+                    number: document.getElementById('phoneNumber').textContent,
+                    status: 'failed',
+                    country: selectedCountry,
+                    price: selectedPrice,
+                    otp: null
+                });
+                
+                // Clear active transaction
+                await clearActiveTransaction(currentUser.uid);
+            } catch (error) {
+                console.error('Error auto-cancelling number:', error);
+            }
+        }
+
+        function updateCountdownDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            countdownElement.textContent = 
+                `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        // Show Status Message Function
+        function showStatus(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.className = 'status-message';
+            
+            switch(type) {
+                case 'success':
+                    statusMessage.classList.add('status-success');
+                    break;
+                case 'error':
+                    statusMessage.classList.add('status-error');
+                    break;
+                case 'info':
+                    statusMessage.classList.add('status-info');
+                    break;
+            }
+            
+            statusMessage.style.display = 'block';
+            
+            setTimeout(() => {
+                statusMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        // Country dropdown toggle
+        countrySearch.addEventListener('focus', function() {
+            countryDropdown.style.display = 'block';
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.country-selector')) {
+                countryDropdown.style.display = 'none';
+            }
+        });
+
+        // Initialize on page load
+        window.addEventListener('load', function() {
+            initializeCountrySelector();
+            checkServerStatus();
+            setInterval(checkServerStatus, 30000);
+        });
+    </script>
+</body>
+</html>
